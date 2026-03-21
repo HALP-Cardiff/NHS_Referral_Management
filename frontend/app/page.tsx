@@ -186,8 +186,8 @@ export default function Home() {
           </form>
         </section>
 
-        <div className="grid flex-1 gap-6 lg:grid-cols-2">
-          <section className="flex min-h-[280px] flex-col rounded-xl border border-zinc-200 bg-white shadow-sm">
+        <div className="flex flex-1">
+          <section className="flex w-full min-h-[280px] flex-col rounded-xl border border-zinc-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
               <h2 className="text-sm font-medium">Documents</h2>
               <button
@@ -198,110 +198,85 @@ export default function Home() {
                 Refresh
               </button>
             </div>
-            <div className="flex-1 overflow-auto p-2">
-              {listLoading ? (
-                <p className="px-2 py-4 text-sm text-zinc-500">Loading…</p>
-              ) : docs.length === 0 ? (
-                <p className="px-2 py-4 text-sm text-zinc-500">
-                  No documents yet. Upload a PDF to get started.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-1">
-                  {docs.map((d) => (
-                    <li key={d.id}>
-                      <div
-                        className={`rounded-lg border border-transparent px-2 py-2 transition hover:bg-zinc-50 ${
-                          selected?.id === d.id ? "bg-zinc-100" : ""
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => loadDetail(d.id)}
-                            className="min-w-0 flex-1 text-left text-sm"
+            <div className="grid flex-1 min-h-0 md:grid-cols-[260px_minmax(0,1fr)]">
+              <div className="min-h-0 border-b border-zinc-200 p-2 md:border-b-0 md:border-r">
+                <div className="h-full overflow-auto">
+                  {listLoading ? (
+                    <p className="px-2 py-4 text-sm text-zinc-500">Loading…</p>
+                  ) : docs.length === 0 ? (
+                    <p className="px-2 py-4 text-sm text-zinc-500">
+                      No documents yet. Upload a PDF to get started.
+                    </p>
+                  ) : (
+                    <ul className="flex flex-col gap-1">
+                      {docs.map((d) => (
+                        <li key={d.id}>
+                          <div
+                            className={`rounded-lg border border-transparent px-2 py-2 transition hover:bg-zinc-50 ${
+                              selected?.id === d.id ? "bg-zinc-100" : ""
+                            }`}
                           >
-                            <span className="font-medium text-zinc-900">
-                              {d.original_filename}
-                            </span>
-                            <span className="mt-0.5 block text-xs text-zinc-500">
-                              #{d.id} · {d.page_count ?? "?"} pages ·{" "}
-                              {d.uploaded_at}
-                            </span>
-                            {d.text_excerpt ? (
-                              <span className="mt-1 line-clamp-2 block text-xs text-zinc-600">
-                                {d.text_excerpt}
-                              </span>
-                            ) : null}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(d)}
-                            disabled={deletingId === d.id}
-                            className="shrink-0 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                            aria-label={`Delete ${d.original_filename}`}
-                          >
-                            {deletingId === d.id ? "Deleting…" : "Remove"}
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </section>
-
-          <section className="flex min-h-[280px] flex-col rounded-xl border border-zinc-200 bg-white shadow-sm">
-            <div className="border-b border-zinc-200 px-4 py-3">
-              <h2 className="text-sm font-medium">Parsed content</h2>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              {!selected ? (
-                <p className="text-sm text-zinc-500">
-                  Select a document from the list to view extracted metadata
-                  and full text.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Metadata
-                    </h3>
-                    <dl className="mt-2 grid gap-1 text-sm">
-                      <div className="flex gap-2">
-                        <dt className="w-24 shrink-0 text-zinc-500">Title</dt>
-                        <dd>
-                          {selected.parsed_json?.meta.title ?? "—"}
-                        </dd>
-                      </div>
-                      <div className="flex gap-2">
-                        <dt className="w-24 shrink-0 text-zinc-500">Author</dt>
-                        <dd>
-                          {selected.parsed_json?.meta.author ?? "—"}
-                        </dd>
-                      </div>
-                      <div className="flex gap-2">
-                        <dt className="w-24 shrink-0 text-zinc-500">Pages</dt>
-                        <dd>
-                          {selected.parsed_json?.numpages ??
-                            selected.page_count ??
-                            "—"}
-                        </dd>
-                      </div>
-                    </dl>
-                  </div>
-                  <div>
-                    <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Extracted text
-                    </h3>
-                    <pre className="mt-2 max-h-[min(420px,50vh)] overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-50 p-3 font-mono text-xs leading-relaxed text-zinc-800">
-                      {selected.raw_text?.trim()
-                        ? selected.raw_text
-                        : "(No text could be extracted — the PDF may be image-only.)"}
-                    </pre>
-                  </div>
+                            <div className="flex items-start justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => loadDetail(d.id)}
+                                className="min-w-0 flex-1 text-left text-sm"
+                              >
+                                <span className="font-medium text-zinc-900">
+                                  {d.original_filename}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-zinc-500">
+                                  #{d.id} · {d.page_count ?? "?"} pages ·{" "}
+                                  {d.uploaded_at}
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(d)}
+                                disabled={deletingId === d.id}
+                                className="shrink-0 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                aria-label={`Delete ${d.original_filename}`}
+                              >
+                                {deletingId === d.id ? "Deleting…" : "Remove"}
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-              )}
+              </div>
+
+              <div className="min-h-0 p-4">
+                {!selected ? (
+                  <p className="text-sm text-zinc-500">
+                    Select a document from the list to view its description.
+                  </p>
+                ) : (
+                  <div className="flex h-full flex-col gap-3 overflow-auto">
+                    <h3 className="text-sm font-semibold text-zinc-900">
+                      {selected.original_filename}
+                    </h3>
+                    <p className="text-xs text-zinc-500">
+                      #{selected.id} · {selected.page_count ?? "?"} pages ·{" "}
+                      {selected.uploaded_at}
+                    </p>
+
+                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Description
+                      </p>
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700">
+                        {selected.text_excerpt ??
+                          selected.parsed_json?.meta.subject ??
+                          selected.raw_text?.slice(0, 800) ??
+                          "No description available for this document yet."}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </section>
         </div>
