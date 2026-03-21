@@ -145,7 +145,7 @@ export default function Home() {
     <div className="min-h-full flex flex-col bg-zinc-50 text-zinc-900">
       <header className="border-b border-zinc-200 bg-white px-6 py-4">
         <h1 className="text-center text-xl font-semibold tracking-tight">
-          NHS Referral Management
+          ALAC-a-zam
         </h1>
       </header>
 
@@ -240,7 +240,7 @@ export default function Home() {
                             className="shrink-0 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label={`Delete ${d.original_filename}`}
                           >
-                            {deletingId === d.id ? "Deleting…" : "Delete PDF"}
+                            {deletingId === d.id ? "Deleting…" : "Remove"}
                           </button>
                         </div>
                       </div>
