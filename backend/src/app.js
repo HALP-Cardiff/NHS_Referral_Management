@@ -5,7 +5,11 @@ const { router: documentsRouter } = require("./routes/documents");
 
 const app = express();
 
-const defaultOrigins = ["http://localhost:3000", "http://127.0.0.1:3000"];
+const defaultOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://referral-nhs-management.netlify.app",
+];
 const corsOrigin = process.env.CORS_ORIGIN;
 app.use(
   cors({
