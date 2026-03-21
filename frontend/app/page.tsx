@@ -9,6 +9,10 @@ function apiUrl(path: string) {
   return path;
 }
 
+const apiIsCrossOrigin = Boolean(
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "")
+);
+
 type ParsedJson = {
   numpages: number;
   meta: {
@@ -27,6 +31,9 @@ type DocSummary = {
   uploaded_at: string;
   text_excerpt?: string;
   parsed_json?: ParsedJson | null;
+  has_video?: boolean;
+  video_original_filename?: string | null;
+  video_mime_type?: string | null;
 };
 
 type DocDetail = DocSummary & { raw_text?: string };
@@ -47,7 +54,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [isDragActive, setIsDragActive] = useState(false);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -134,6 +141,9 @@ export default function Home() {
     try {
       const fd = new FormData();
       fd.append("file", file);
+      if (videoFile) {
+        fd.append("video", videoFile);
+      }
       const r = await fetch(apiUrl("/api/documents"), {
         method: "POST",
         body: fd,
@@ -146,9 +156,7 @@ export default function Home() {
       }
       const doc = body as DocDetail;
       setFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      setVideoFile(null);
       await loadList();
       setSelected(doc);
     } catch (e) {
@@ -214,125 +222,57 @@ export default function Home() {
           </div>
         ) : null}
 
-        <section className="section-enter panel delay-2 p-5 sm:p-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h2 className="font-display text-[1.55rem] font-semibold tracking-tight text-[var(--foreground)]">
-                Upload
-              </h2>
-              <p className="text-sm text-[var(--ink-soft)]">
-                Add a referral file for immediate parsing and preview.
-              </p>
+        <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <h2 className="text-sm font-medium text-zinc-500">
+            Upload PDF (optional video)
+          </h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Choose a PDF first. Video (MP4, WebM, or MOV) can be added in the
+            same upload and must accompany a PDF.
+          </p>
+          <form
+            className="mt-3 flex flex-col gap-3"
+            onSubmit={handleUpload}
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex flex-1 flex-col gap-1 text-sm">
+                <span className="text-zinc-600">PDF</span>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="block w-full text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-white file:hover:bg-zinc-800"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setFile(f);
+                    if (!f) setVideoFile(null);
+                  }}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={!file || uploading}
+                className="h-10 shrink-0 rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white transition enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {uploading ? "Uploading…" : "Upload and parse"}
+              </button>
             </div>
-          </div>
-          <form className="mt-4 grid gap-4" onSubmit={handleUpload}>
-            <div className="min-w-0">
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-600">
+                Video{" "}
+                <span className="font-normal text-zinc-400">
+                  (optional, requires PDF above)
+                </span>
+              </span>
               <input
                 id="referral-pdf"
                 ref={fileInputRef}
                 type="file"
-                accept="application/pdf,.pdf"
-                className="sr-only"
-                onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
+                accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                disabled={!file || uploading}
+                className="block w-full text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-zinc-700 file:px-3 file:py-2 file:text-white file:hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
+                onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
               />
-              <div
-                onDragEnter={(e) => {
-                  e.preventDefault();
-                  setIsDragActive(true);
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragActive(true);
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  setIsDragActive(false);
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragActive(false);
-                  selectFile(e.dataTransfer.files?.[0] ?? null);
-                }}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label="Drop PDF here or browse files"
-                className={`flex cursor-pointer rounded-2xl border-2 border-dashed transition duration-200 ease-out ${
-                  file
-                    ? "min-h-[92px] items-center justify-between gap-3 px-4 py-3 text-left"
-                    : "min-h-[230px] flex-col items-center justify-center px-5 py-7 text-center"
-                } ${
-                  isDragActive
-                    ? "border-[var(--accent-strong)] bg-[color:color-mix(in_oklch,var(--accent)_14%,var(--surface))]"
-                    : "border-[color:color-mix(in_oklch,var(--line)_88%,var(--surface))] bg-[color:color-mix(in_oklch,var(--surface-2)_86%,white)] hover:border-[var(--accent)] hover:bg-[color:color-mix(in_oklch,var(--accent)_7%,var(--surface-2))]"
-                }`}
-              >
-                {file ? (
-                  <>
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex min-w-0 max-w-[min(100%,420px)] items-center gap-2 rounded-lg border border-[#d96363] bg-[#e87878] px-2.5 py-2"
-                    >
-                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#dc6666] text-white">
-                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-                          <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-5-5Zm0 2.5L16.5 7H14V4.5ZM8 11.25c0-.41.34-.75.75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Zm0 3.5c0-.41.34-.75.75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Z" />
-                        </svg>
-                      </span>
-                      <span className="truncate text-sm font-semibold text-white">
-                        {file.name}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={uploading}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearSelectedFile();
-                        }}
-                        className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#cc5959] bg-[#dc6666] text-sm font-bold text-white transition hover:bg-[#cf5e5e] disabled:cursor-not-allowed disabled:opacity-50"
-                        aria-label="Clear selected file"
-                      >
-                        ×
-                      </button>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={uploading}
-                      onClick={(e) => e.stopPropagation()}
-                      className="h-12 w-[170px] shrink-0 cursor-pointer rounded-xl border border-transparent bg-[linear-gradient(95deg,color-mix(in_oklch,var(--accent-strong)_96%,black),color-mix(in_oklch,var(--accent)_88%,white))] px-4 text-base font-semibold text-[var(--surface)] shadow-[0_10px_22px_color-mix(in_oklch,var(--accent)_24%,transparent)] transition duration-200 ease-out hover:translate-y-[-1px] hover:shadow-[0_14px_26px_color-mix(in_oklch,var(--accent)_30%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {uploading ? "Uploading..." : "Upload"}
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[color:color-mix(in_oklch,var(--accent)_14%,var(--surface))] text-[var(--accent-strong)]">
-                      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden="true">
-                        <path d="M12 3a6 6 0 0 0-5.915 5H6a5 5 0 0 0 0 10h12a4 4 0 0 0 .65-7.947A6.002 6.002 0 0 0 12 3Zm0 4.5a.75.75 0 0 1 .75.75v4.19l1.72-1.72a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 1 1 1.06-1.06l1.72 1.72V8.25A.75.75 0 0 1 12 7.5Z" />
-                      </svg>
-                    </span>
-                    <p className="text-[clamp(1.28rem,1.85vw,1.8rem)] font-semibold tracking-tight text-[var(--foreground)]">
-                      Drag and drop referral form
-                    </p>
-                    <p className="mt-1.5 max-w-[46ch] text-[0.95rem] text-[var(--ink-soft)]">
-                      Supports PDF referrals and clinical exports. Drop the file in this box to upload.
-                    </p>
-                    <p className="mt-4 text-xs font-medium text-[var(--ink-soft)]">
-                      No PDF selected
-                    </p>
-                  <span className="mt-4 inline-flex rounded-xl border border-[color:color-mix(in_oklch,var(--accent)_20%,var(--line))] bg-[var(--surface)] px-6 py-2.5 text-[1.05rem] font-semibold text-[var(--accent-strong)] shadow-[0_8px_22px_color-mix(in_oklch,var(--accent)_10%,transparent)]">
-                    Browse Files
-                  </span>
-                  </>
-                )}
-              </div>
-            </div>
+            </label>
           </form>
         </section>
 
@@ -354,26 +294,53 @@ export default function Home() {
               >
                 Refresh
               </button>
-
-              <div className="h-[260px] overflow-auto pr-1 md:h-full">
-                {listLoading ? (
-                  <p className="px-2 py-4 text-sm text-[var(--ink-soft)]">Loading...</p>
-                ) : docs.length === 0 ? (
-                  <p className="px-2 py-4 text-sm leading-relaxed text-[var(--ink-soft)]">
-                    No referrals queued yet. Upload a PDF to begin triage.
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-1.5">
-                    {docs.map((d) => {
-                      const selectedDoc = selected?.id === d.id;
-                      return (
-                        <li key={d.id}>
-                          <article
-                            className={`rounded-xl border px-2.5 py-2.5 transition duration-200 ${
-                              selectedDoc
-                                ? "border-[color:color-mix(in_oklch,var(--accent)_40%,var(--line))] bg-[color-mix(in_oklch,var(--surface)_94%,var(--accent)_3%)]"
-                                : "border-transparent bg-[var(--surface)] hover:border-[var(--line)] hover:bg-[color-mix(in_oklch,var(--surface)_96%,var(--accent)_2%)]"
-                            }`}
+            </div>
+            <div className="flex-1 overflow-auto p-2">
+              {listLoading ? (
+                <p className="px-2 py-4 text-sm text-zinc-500">Loading…</p>
+              ) : docs.length === 0 ? (
+                <p className="px-2 py-4 text-sm text-zinc-500">
+                  No documents yet. Upload a PDF to get started.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {docs.map((d) => (
+                    <li key={d.id}>
+                      <div
+                        className={`rounded-lg border border-transparent px-2 py-2 transition hover:bg-zinc-50 ${
+                          selected?.id === d.id ? "bg-zinc-100" : ""
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => loadDetail(d.id)}
+                            className="min-w-0 flex-1 text-left text-sm"
+                          >
+                            <span className="font-medium text-zinc-900">
+                              {d.original_filename}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-zinc-500">
+                              #{d.id} · {d.page_count ?? "?"} pages ·{" "}
+                              {d.uploaded_at}
+                              {d.has_video ? (
+                                <span className="ml-1 rounded bg-zinc-200 px-1.5 py-0.5 text-zinc-700">
+                                  Video
+                                </span>
+                              ) : null}
+                            </span>
+                            {d.text_excerpt ? (
+                              <span className="mt-1 line-clamp-2 block text-xs text-zinc-600">
+                                {d.text_excerpt}
+                              </span>
+                            ) : null}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(d)}
+                            disabled={deletingId === d.id}
+                            className="shrink-0 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`Delete ${d.original_filename}`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <button
@@ -419,10 +386,63 @@ export default function Home() {
                   </p>
                 </div>
               ) : (
-                <article className="grid h-full grid-rows-[auto_auto_1fr] gap-4 overflow-auto">
-                  <header>
-                    <h3 className="font-display text-[clamp(1.22rem,2.2vw,2rem)] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
-                      {selected.original_filename}
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Metadata
+                    </h3>
+                    <dl className="mt-2 grid gap-1 text-sm">
+                      <div className="flex gap-2">
+                        <dt className="w-24 shrink-0 text-zinc-500">Title</dt>
+                        <dd>
+                          {selected.parsed_json?.meta.title ?? "—"}
+                        </dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="w-24 shrink-0 text-zinc-500">Author</dt>
+                        <dd>
+                          {selected.parsed_json?.meta.author ?? "—"}
+                        </dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="w-24 shrink-0 text-zinc-500">Pages</dt>
+                        <dd>
+                          {selected.parsed_json?.numpages ??
+                            selected.page_count ??
+                            "—"}
+                        </dd>
+                      </div>
+                      {selected.has_video ? (
+                        <div className="flex gap-2">
+                          <dt className="w-24 shrink-0 text-zinc-500">
+                            Video
+                          </dt>
+                          <dd className="min-w-0 break-all text-zinc-800">
+                            {selected.video_original_filename ?? "Attached"}
+                          </dd>
+                        </div>
+                      ) : null}
+                    </dl>
+                  </div>
+                  {selected.has_video ? (
+                    <div>
+                      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Accompanying video
+                      </h3>
+                      <video
+                        key={selected.id}
+                        controls
+                        crossOrigin={apiIsCrossOrigin ? "anonymous" : undefined}
+                        className="mt-2 w-full max-w-full rounded-lg border border-zinc-200 bg-black"
+                        src={apiUrl(`/api/documents/${selected.id}/video`)}
+                      >
+                        Your browser does not support embedded video.
+                      </video>
+                    </div>
+                  ) : null}
+                  <div>
+                    <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Extracted text
                     </h3>
                     <p className="mt-1 text-sm text-[var(--ink-soft)]">
                       Referral #{selected.id} · {selected.page_count ?? "?"} pages · {" "}

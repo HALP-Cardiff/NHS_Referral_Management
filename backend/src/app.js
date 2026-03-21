@@ -29,9 +29,10 @@ app.use("/api/documents", documentsRouter);
 app.use((err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res
-        .status(400)
-        .json({ error: "File too large (maximum 20 MB)" });
+      return res.status(400).json({
+        error:
+          "File too large (PDF maximum 20 MB, video maximum 200 MB per file)",
+      });
     }
     return res.status(400).json({ error: err.message });
   }
