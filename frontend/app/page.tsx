@@ -38,6 +38,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const loadList = useCallback(async () => {
     setListLoading(true);
@@ -106,6 +107,37 @@ export default function Home() {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleDelete(doc: DocSummary) {
+    const confirmed = window.confirm(
+      `Delete ${doc.original_filename}? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(doc.id);
+    setError(null);
+    try {
+      const r = await fetch(apiUrl(`/api/documents/${doc.id}`), {
+        method: "DELETE",
+      });
+
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(
+          typeof body.error === "string" ? body.error : `HTTP ${r.status}`
+        );
+      }
+
+      setDocs((prev) => prev.filter((d) => d.id !== doc.id));
+      if (selected?.id === doc.id) {
+        setSelected(null);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not delete document");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -180,26 +212,41 @@ export default function Home() {
                 <ul className="flex flex-col gap-1">
                   {docs.map((d) => (
                     <li key={d.id}>
-                      <button
-                        type="button"
-                        onClick={() => loadDetail(d.id)}
-                        className={`w-full rounded-lg px-3 py-2 text-left text-sm transition hover:bg-zinc-100 ${
+                      <div
+                        className={`rounded-lg border border-transparent px-2 py-2 transition hover:bg-zinc-50 ${
                           selected?.id === d.id ? "bg-zinc-100" : ""
                         }`}
                       >
-                        <span className="font-medium text-zinc-900">
-                          {d.original_filename}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-zinc-500">
-                          #{d.id} · {d.page_count ?? "?"} pages ·{" "}
-                          {d.uploaded_at}
-                        </span>
-                        {d.text_excerpt ? (
-                          <span className="mt-1 line-clamp-2 block text-xs text-zinc-600">
-                            {d.text_excerpt}
-                          </span>
-                        ) : null}
-                      </button>
+                        <div className="flex items-start justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => loadDetail(d.id)}
+                            className="min-w-0 flex-1 text-left text-sm"
+                          >
+                            <span className="font-medium text-zinc-900">
+                              {d.original_filename}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-zinc-500">
+                              #{d.id} · {d.page_count ?? "?"} pages ·{" "}
+                              {d.uploaded_at}
+                            </span>
+                            {d.text_excerpt ? (
+                              <span className="mt-1 line-clamp-2 block text-xs text-zinc-600">
+                                {d.text_excerpt}
+                              </span>
+                            ) : null}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(d)}
+                            disabled={deletingId === d.id}
+                            className="shrink-0 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label={`Delete ${d.original_filename}`}
+                          >
+                            {deletingId === d.id ? "Deleting…" : "Delete PDF"}
+                          </button>
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>

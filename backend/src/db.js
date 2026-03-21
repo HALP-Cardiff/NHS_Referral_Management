@@ -99,9 +99,17 @@ function listDocuments(limit = 50) {
   return rows.map((row) => mapRow(row, { fullText: false }));
 }
 
+function deleteDocumentById(id) {
+  const info = db
+    .prepare(`DELETE FROM documents WHERE id = ?`)
+    .run(Number(id));
+  return info.changes > 0;
+}
+
 module.exports = {
   db,
   insertDocument,
   getDocumentById,
   listDocuments,
+  deleteDocumentById,
 };
