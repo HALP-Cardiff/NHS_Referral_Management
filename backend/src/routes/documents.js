@@ -2,7 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const multer = require("multer");
-const { PDFParse } = require("pdf-parse");
+const { parseAlecPdf } = require("../services/pdfParser");
 const {
   insertDocument,
   setDocumentVideo,
@@ -47,48 +47,6 @@ const upload = multer({
 
 const router = express.Router();
 
-function pdfInfoToJson(infoResult) {
-  if (!infoResult?.info || typeof infoResult.info !== "object") {
-    return { title: null, author: null, subject: null };
-  }
-  const i = infoResult.info;
-  const str = (v) => {
-    if (v == null) return null;
-    if (typeof v === "string") return v;
-    try {
-      return String(v);
-    } catch {
-      return null;
-    }
-  };
-  return {
-    title: str(i.Title),
-    author: str(i.Author),
-    subject: str(i.Subject),
-  };
-}
-
-async function extractFromPdfBuffer(buffer) {
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const textResult = await parser.getText();
-    let meta = { title: null, author: null, subject: null };
-    try {
-      const infoResult = await parser.getInfo();
-      meta = pdfInfoToJson(infoResult);
-    } catch {
-      /* optional metadata */
-    }
-    return {
-      text: textResult.text ?? "",
-      numpages: textResult.total,
-      meta,
-    };
-  } finally {
-    await parser.destroy();
-  }
-}
-
 router.post(
   "/",
   upload.fields([
@@ -105,14 +63,14 @@ router.post(
       if (videoFile && !pdfFile) {
         return res.status(400).json({
           error:
-            "A video cannot be uploaded without a PDF. Include a PDF in the same request (field \"file\").",
+            'A video cannot be uploaded without a PDF. Include a PDF in the same request (field "file").',
         });
       }
 
       if (!pdfFile) {
         return res.status(400).json({
           error:
-            "No PDF received. Send multipart/form-data with field name \"file\".",
+            'No PDF received. Send multipart/form-data with field name "file".',
         });
       }
 
@@ -128,18 +86,36 @@ router.post(
         });
       }
 
-      const extracted = await extractFromPdfBuffer(pdfFile.buffer);
+      const parsed = await parseAlecPdf(pdfFile.buffer);
+
+      if (!parsed.formDetected) {
+        return res.status(400).json({ error: parsed.error });
+      }
+
+      if (!parsed.isValid) {
+        return res.status(400).json({
+          error: "Required fields missing from the ALEC Screening Form",
+          missing_fields: parsed.missingRequired,
+          partial_result: {
+            fields: parsed.fields,
+            meta: parsed.meta,
+            numpages: parsed.numpages,
+          },
+        });
+      }
+
       const parsedJson = {
-        numpages: extracted.numpages,
-        meta: extracted.meta,
-        fields: {},
+        numpages: parsed.numpages,
+        meta: parsed.meta,
+        fields: parsed.fields,
+        isValid: true,
       };
 
       newId = insertDocument({
         originalFilename: pdfFile.originalname || "upload.pdf",
         mimeType: pdfFile.mimetype,
-        pageCount: extracted.numpages,
-        rawText: extracted.text,
+        pageCount: parsed.numpages,
+        rawText: parsed.rawText,
         parsedJson,
       });
 
