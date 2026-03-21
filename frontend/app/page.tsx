@@ -27,6 +27,9 @@ type DocSummary = {
   uploaded_at: string;
   text_excerpt?: string;
   parsed_json?: ParsedJson | null;
+  has_video?: boolean;
+  video_original_filename?: string | null;
+  video_mime_type?: string | null;
 };
 
 type DocDetail = DocSummary & { raw_text?: string };
@@ -38,6 +41,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const loadList = useCallback(async () => {
@@ -89,6 +93,9 @@ export default function Home() {
     try {
       const fd = new FormData();
       fd.append("file", file);
+      if (videoFile) {
+        fd.append("video", videoFile);
+      }
       const r = await fetch(apiUrl("/api/documents"), {
         method: "POST",
         body: fd,
@@ -101,6 +108,7 @@ export default function Home() {
       }
       const doc = body as DocDetail;
       setFile(null);
+      setVideoFile(null);
       await loadList();
       setSelected(doc);
     } catch (e) {
@@ -161,28 +169,53 @@ export default function Home() {
 
         <section className="rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
           <h2 className="text-sm font-medium text-zinc-500">
-            Upload PDF
+            Upload PDF (optional video)
           </h2>
+          <p className="mt-1 text-xs text-zinc-500">
+            Choose a PDF first. Video (MP4, WebM, or MOV) can be added in the
+            same upload and must accompany a PDF.
+          </p>
           <form
-            className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end"
+            className="mt-3 flex flex-col gap-3"
             onSubmit={handleUpload}
           >
-            <label className="flex flex-1 flex-col gap-1 text-sm">
-              <span className="text-zinc-600">File</span>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <label className="flex flex-1 flex-col gap-1 text-sm">
+                <span className="text-zinc-600">PDF</span>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="block w-full text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-white file:hover:bg-zinc-800"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0] ?? null;
+                    setFile(f);
+                    if (!f) setVideoFile(null);
+                  }}
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={!file || uploading}
+                className="h-10 shrink-0 rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white transition enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {uploading ? "Uploading…" : "Upload and parse"}
+              </button>
+            </div>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="text-zinc-600">
+                Video{" "}
+                <span className="font-normal text-zinc-400">
+                  (optional, requires PDF above)
+                </span>
+              </span>
               <input
                 type="file"
-                accept="application/pdf,.pdf"
-                className="block w-full text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-white file:hover:bg-zinc-800"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                disabled={!file || uploading}
+                className="block w-full text-sm file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-zinc-700 file:px-3 file:py-2 file:text-white file:hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
+                onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
               />
             </label>
-            <button
-              type="submit"
-              disabled={!file || uploading}
-              className="h-10 rounded-lg bg-zinc-900 px-5 text-sm font-medium text-white transition enabled:hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {uploading ? "Uploading…" : "Upload and parse"}
-            </button>
           </form>
         </section>
 
@@ -226,6 +259,11 @@ export default function Home() {
                             <span className="mt-0.5 block text-xs text-zinc-500">
                               #{d.id} · {d.page_count ?? "?"} pages ·{" "}
                               {d.uploaded_at}
+                              {d.has_video ? (
+                                <span className="ml-1 rounded bg-zinc-200 px-1.5 py-0.5 text-zinc-700">
+                                  Video
+                                </span>
+                              ) : null}
                             </span>
                             {d.text_excerpt ? (
                               <span className="mt-1 line-clamp-2 block text-xs text-zinc-600">
@@ -288,8 +326,33 @@ export default function Home() {
                             "—"}
                         </dd>
                       </div>
+                      {selected.has_video ? (
+                        <div className="flex gap-2">
+                          <dt className="w-24 shrink-0 text-zinc-500">
+                            Video
+                          </dt>
+                          <dd className="min-w-0 break-all text-zinc-800">
+                            {selected.video_original_filename ?? "Attached"}
+                          </dd>
+                        </div>
+                      ) : null}
                     </dl>
                   </div>
+                  {selected.has_video ? (
+                    <div>
+                      <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Accompanying video
+                      </h3>
+                      <video
+                        key={selected.id}
+                        controls
+                        className="mt-2 w-full max-w-full rounded-lg border border-zinc-200 bg-black"
+                        src={apiUrl(`/api/documents/${selected.id}/video`)}
+                      >
+                        Your browser does not support embedded video.
+                      </video>
+                    </div>
+                  ) : null}
                   <div>
                     <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                       Extracted text

@@ -24,6 +24,18 @@ db.exec(`
   );
 `);
 
+const documentColumns = db.prepare(`PRAGMA table_info(documents)`).all();
+const documentColumnNames = new Set(documentColumns.map((c) => c.name));
+if (!documentColumnNames.has("video_original_filename")) {
+  db.exec(`ALTER TABLE documents ADD COLUMN video_original_filename TEXT`);
+}
+if (!documentColumnNames.has("video_mime_type")) {
+  db.exec(`ALTER TABLE documents ADD COLUMN video_mime_type TEXT`);
+}
+if (!documentColumnNames.has("video_storage_path")) {
+  db.exec(`ALTER TABLE documents ADD COLUMN video_storage_path TEXT`);
+}
+
 function mapRow(row, { fullText = true } = {}) {
   let parsed_json = null;
   if (row.parsed_json) {
@@ -33,6 +45,7 @@ function mapRow(row, { fullText = true } = {}) {
       parsed_json = null;
     }
   }
+  const has_video = Boolean(row.video_storage_path);
   return {
     id: row.id,
     original_filename: row.original_filename,
@@ -42,6 +55,9 @@ function mapRow(row, { fullText = true } = {}) {
     text_excerpt: row.text_excerpt ?? undefined,
     parsed_json,
     uploaded_at: row.uploaded_at,
+    has_video,
+    video_original_filename: row.video_original_filename ?? null,
+    video_mime_type: row.video_mime_type ?? null,
   };
 }
 
@@ -69,12 +85,39 @@ function insertDocument({
   return Number(info.lastInsertRowid);
 }
 
+function setDocumentVideo(
+  id,
+  { originalFilename, mimeType, storageFilename }
+) {
+  db.prepare(
+    `
+    UPDATE documents
+    SET video_original_filename = @originalFilename,
+        video_mime_type = @mimeType,
+        video_storage_path = @storageFilename
+    WHERE id = @id
+  `
+  ).run({
+    id: Number(id),
+    originalFilename: originalFilename ?? null,
+    mimeType: mimeType ?? null,
+    storageFilename: storageFilename ?? null,
+  });
+}
+
 function getDocumentById(id) {
   const row = db
     .prepare(`SELECT * FROM documents WHERE id = ?`)
     .get(Number(id));
   if (!row) return null;
   return mapRow(row, { fullText: true });
+}
+
+function getVideoStoragePath(id) {
+  const row = db
+    .prepare(`SELECT video_storage_path FROM documents WHERE id = ?`)
+    .get(Number(id));
+  return row?.video_storage_path ?? null;
 }
 
 function listDocuments(limit = 50) {
@@ -89,7 +132,10 @@ function listDocuments(limit = 50) {
       page_count,
       uploaded_at,
       substr(COALESCE(raw_text, ''), 1, 320) AS text_excerpt,
-      parsed_json
+      parsed_json,
+      video_storage_path,
+      video_original_filename,
+      video_mime_type
     FROM documents
     ORDER BY id DESC
     LIMIT ?
@@ -100,16 +146,28 @@ function listDocuments(limit = 50) {
 }
 
 function deleteDocumentById(id) {
-  const info = db
-    .prepare(`DELETE FROM documents WHERE id = ?`)
-    .run(Number(id));
+  const nid = Number(id);
+  const row = db
+    .prepare(`SELECT video_storage_path FROM documents WHERE id = ?`)
+    .get(nid);
+  const info = db.prepare(`DELETE FROM documents WHERE id = ?`).run(nid);
+  if (info.changes > 0 && row?.video_storage_path) {
+    const videoPath = path.join(dataDir, "videos", row.video_storage_path);
+    try {
+      fs.unlinkSync(videoPath);
+    } catch {
+      /* file may already be missing */
+    }
+  }
   return info.changes > 0;
 }
 
 module.exports = {
   db,
   insertDocument,
+  setDocumentVideo,
   getDocumentById,
+  getVideoStoragePath,
   listDocuments,
   deleteDocumentById,
 };
