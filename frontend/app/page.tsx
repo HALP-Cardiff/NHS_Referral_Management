@@ -9,6 +9,10 @@ function apiUrl(path: string) {
   return path;
 }
 
+const apiIsCrossOrigin = Boolean(
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "")
+);
+
 type ParsedJson = {
   numpages: number;
   meta: {
@@ -346,6 +350,7 @@ export default function Home() {
                       <video
                         key={selected.id}
                         controls
+                        crossOrigin={apiIsCrossOrigin ? "anonymous" : undefined}
                         className="mt-2 w-full max-w-full rounded-lg border border-zinc-200 bg-black"
                         src={apiUrl(`/api/documents/${selected.id}/video`)}
                       >
