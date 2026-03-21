@@ -1,5 +1,7 @@
 const express = require("express");
 const cors = require("cors");
+const multer = require("multer");
+const { router: documentsRouter } = require("./routes/documents");
 
 const app = express();
 
@@ -20,6 +22,24 @@ app.get("/health", (req, res) => {
 
 app.get("/api", (req, res) => {
   res.json({ message: "NHS Referral Management API" });
+});
+
+app.use("/api/documents", documentsRouter);
+
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res
+        .status(400)
+        .json({ error: "File too large (maximum 20 MB)" });
+    }
+    return res.status(400).json({ error: err.message });
+  }
+  console.error(err);
+  const status = Number(err.statusCode) || 500;
+  res.status(status).json({
+    error: err.message || "Internal server error",
+  });
 });
 
 module.exports = app;
