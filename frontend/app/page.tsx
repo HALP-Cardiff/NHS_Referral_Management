@@ -43,6 +43,34 @@ function formatUploadedAt(value: string) {
   });
 }
 
+/**
+ * PDF text is often ""; `??` does not treat "" as missing, so we normalize and widen fallbacks.
+ * Detail API returns full `raw_text`; `text_excerpt` is only a short list preview (~320 chars) — never prefer it when raw exists.
+ */
+function displaySummaryText(doc: DocDetail): string {
+  const pick = (s: string | null | undefined) => {
+    const t = typeof s === "string" ? s.trim() : "";
+    return t.length > 0 ? t : "";
+  };
+
+  const raw = pick(doc.raw_text);
+  if (raw) return raw;
+
+  const excerpt = pick(doc.text_excerpt);
+  if (excerpt) return excerpt;
+
+  const subject = pick(doc.parsed_json?.meta.subject);
+  if (subject) return subject;
+
+  const title = pick(doc.parsed_json?.meta.title);
+  if (title) return title;
+
+  const author = pick(doc.parsed_json?.meta.author);
+  if (author) return author;
+
+  return "No extractable body text was found for this PDF. It may be scanned, image-only, or otherwise unreadable to the parser. Use the metadata above and the original file as needed.";
+}
+
 const pickerButtonClass =
   "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-[color:color-mix(in_oklch,var(--accent)_20%,var(--line))] bg-[var(--surface)] px-6 py-2.5 text-[1.05rem] font-semibold text-[var(--accent-strong)] shadow-[0_8px_22px_color-mix(in_oklch,var(--accent)_10%,transparent)] transition duration-200 ease-out hover:border-[var(--accent)] hover:shadow-[0_10px_24px_color-mix(in_oklch,var(--accent)_14%,transparent)] disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -519,9 +547,9 @@ export default function Home() {
           </form>
         </section>
 
-        <section className="section-enter panel delay-3 min-h-[320px] overflow-hidden">
-          <div className="grid min-h-[320px] md:grid-cols-[320px_minmax(0,1fr)]">
-            <div className="border-b border-[var(--line)] bg-[var(--surface-2)] p-3 md:border-b-0 md:border-r">
+        <section className="section-enter panel delay-3 flex min-h-[320px] max-h-[calc(100dvh-10rem)] flex-col overflow-y-auto overscroll-contain md:overflow-hidden">
+          <div className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)]">
+            <div className="flex max-h-[min(42vh,22rem)] min-h-0 flex-col border-b border-[var(--line)] bg-[var(--surface-2)] p-3 md:max-h-none md:border-b-0 md:border-r">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-display text-lg font-semibold tracking-tight text-[var(--foreground)]">
                   Queue
@@ -538,7 +566,7 @@ export default function Home() {
                 Refresh
               </button>
 
-              <div className="h-[260px] overflow-auto pr-1 md:h-full">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 sm:min-h-[200px]">
                 {listLoading ? (
                   <p className="px-2 py-4 text-sm text-[var(--ink-soft)]">Loading...</p>
                 ) : docs.length === 0 ? (
@@ -601,7 +629,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex min-h-0 flex-col p-4 sm:p-6">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-4 sm:p-6">
               {!selected ? (
                 <div className="flex min-h-[200px] flex-1 items-center justify-center rounded-xl border border-dashed border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_96%,var(--accent)_2%)] p-8 text-center">
                   <p className="max-w-[36ch] text-sm leading-relaxed text-[var(--ink-soft)]">
@@ -610,8 +638,8 @@ export default function Home() {
                   </p>
                 </div>
               ) : (
-                <article className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
-                  <header>
+                <article className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-hidden">
+                  <header className="shrink-0">
                     <h3 className="font-display text-[clamp(1.22rem,2.2vw,2rem)] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
                       {selected.original_filename}
                     </h3>
@@ -629,7 +657,7 @@ export default function Home() {
                     </p>
                   </header>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid shrink-0 gap-3 sm:grid-cols-3">
                     <div className="rounded-lg border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_98%,var(--accent)_1%)] p-3">
                       <p className="text-xs uppercase tracking-[0.08em] text-[var(--ink-soft)]">
                         Author
@@ -657,7 +685,7 @@ export default function Home() {
                   </div>
 
                   {selected.has_video ? (
-                    <details className="group shrink-0 rounded-xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_97%,var(--accent)_2%)] [&_summary::-webkit-details-marker]:hidden">
+                    <details className="group min-h-0 shrink-0 rounded-xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_97%,var(--accent)_2%)] [&_summary::-webkit-details-marker]:hidden">
                       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 sm:px-5">
                         <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
                           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color:color-mix(in_oklch,var(--accent)_14%,var(--surface))] text-[var(--accent-strong)]">
@@ -697,16 +725,20 @@ export default function Home() {
                     </details>
                   ) : null}
 
-                  <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_97%,var(--accent)_2%)] p-4 sm:p-5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+                  <section className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_97%,var(--accent)_2%)] p-4 sm:p-5">
+                    <p className="shrink-0 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
                       Extracted summary
                     </p>
-                    <p className="mt-3 min-h-0 flex-1 overflow-auto whitespace-pre-wrap text-[0.97rem] leading-relaxed text-[var(--foreground)]">
-                      {selected.text_excerpt ??
-                        selected.parsed_json?.meta.subject ??
-                        selected.raw_text?.slice(0, 1000) ??
-                        "No description available for this document yet."}
-                    </p>
+                    <div
+                      className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-gutter:stable]"
+                      role="region"
+                      aria-label="Full extracted document text"
+                      tabIndex={0}
+                    >
+                      <p className="whitespace-pre-wrap text-[0.97rem] leading-relaxed text-[var(--foreground)]">
+                        {displaySummaryText(selected)}
+                      </p>
+                    </div>
                   </section>
                 </article>
               )}
