@@ -144,12 +144,9 @@ export default function Home() {
   return (
     <div className="min-h-full flex flex-col bg-zinc-50 text-zinc-900">
       <header className="border-b border-zinc-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-semibold tracking-tight">
+        <h1 className="text-center text-xl font-semibold tracking-tight">
           NHS Referral Management
         </h1>
-        <p className="mt-1 text-sm text-zinc-600">
-          Upload PDF referrals, extract text, and browse stored documents.
-        </p>
       </header>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
