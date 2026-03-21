@@ -148,6 +148,7 @@ function parseAlecFields(rawText) {
     const rawValue = text.substring(pos.valueStart, endIdx).trim();
 
     const cleaned = rawValue
+      .replace(/--\s*\d+\s+of\s+\d+\s*--/gi, "")
       .replace(/\n{2,}/g, "\n")
       .trim();
 
