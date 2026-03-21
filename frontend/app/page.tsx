@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /** When unset, use same-origin `/api/*` (proxied to Express in dev via next.config). */
 function apiUrl(path: string) {
@@ -38,6 +38,15 @@ type DocSummary = {
 
 type DocDetail = DocSummary & { raw_text?: string };
 
+function formatUploadedAt(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
 export default function Home() {
   const [docs, setDocs] = useState<DocSummary[]>([]);
   const [selected, setSelected] = useState<DocDetail | null>(null);
@@ -47,6 +56,41 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  function isPdf(candidate: File) {
+    return (
+      candidate.type === "application/pdf" ||
+      candidate.name.toLowerCase().endsWith(".pdf")
+    );
+  }
+
+  function selectFile(candidate: File | null) {
+    if (!candidate) {
+      setFile(null);
+      return;
+    }
+
+    if (!isPdf(candidate)) {
+      setError("Please choose a PDF file.");
+      setFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setError(null);
+    setFile(candidate);
+  }
+
+  function clearSelectedFile() {
+    setFile(null);
+    setError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
 
   const loadList = useCallback(async () => {
     setListLoading(true);
@@ -154,17 +198,24 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-full flex flex-col bg-zinc-50 text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4">
-        <h1 className="text-center text-xl font-semibold tracking-tight">
-          ALAC-a-zam
-        </h1>
-      </header>
+    <div className="triage-shell min-h-full">
+      <div className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col gap-6 px-4 py-5 sm:px-7 sm:py-8">
+        <header className="section-enter panel delay-1 overflow-hidden p-5 sm:p-7">
+          <div className="grid gap-4 md:grid-cols-[1.3fr_1fr] md:items-end">
+            <div>
+              <p className="mb-2 text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-[var(--ink-soft)]">
+                NHS Referral Management
+              </p>
+              <h1 className="font-display text-[clamp(1.75rem,3.8vw,3.3rem)] font-[700] leading-[0.97] tracking-[-0.01em] text-[var(--foreground)]">
+                ALAC-a-zam
+              </h1>
+            </div>
+          </div>
+        </header>
 
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
         {error ? (
           <div
-            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+            className="section-enter delay-1 rounded-xl border border-[color:color-mix(in_oklch,var(--danger)_30%,var(--line))] bg-[color:color-mix(in_oklch,var(--danger)_10%,var(--surface))] px-4 py-3 text-sm text-[color:color-mix(in_oklch,var(--danger)_68%,var(--foreground))]"
             role="alert"
           >
             {error}
@@ -213,6 +264,8 @@ export default function Home() {
                 </span>
               </span>
               <input
+                id="referral-pdf"
+                ref={fileInputRef}
                 type="file"
                 accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
                 disabled={!file || uploading}
@@ -223,14 +276,21 @@ export default function Home() {
           </form>
         </section>
 
-        <div className="grid flex-1 gap-6 lg:grid-cols-2">
-          <section className="flex min-h-[280px] flex-col rounded-xl border border-zinc-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-              <h2 className="text-sm font-medium">Documents</h2>
+        <section className="section-enter panel delay-3 min-h-[320px] overflow-hidden">
+          <div className="grid min-h-[320px] md:grid-cols-[320px_minmax(0,1fr)]">
+            <div className="border-b border-[var(--line)] bg-[var(--surface-2)] p-3 md:border-b-0 md:border-r">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-display text-lg font-semibold tracking-tight text-[var(--foreground)]">
+                  Queue
+                </h2>
+                <span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-2.5 py-0.5 text-xs font-semibold text-[var(--ink-soft)]">
+                  {docs.length}
+                </span>
+              </div>
               <button
                 type="button"
                 onClick={() => loadList()}
-                className="text-xs font-medium text-zinc-600 underline-offset-2 hover:underline"
+                className="mb-2 cursor-pointer rounded-md px-1.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink-soft)] transition hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
               >
                 Refresh
               </button>
@@ -282,27 +342,49 @@ export default function Home() {
                             className="shrink-0 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label={`Delete ${d.original_filename}`}
                           >
-                            {deletingId === d.id ? "Deleting…" : "Remove"}
-                          </button>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                            <div className="flex items-start justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => loadDetail(d.id)}
+                                className="min-w-0 flex-1 cursor-pointer text-left"
+                              >
+                                <span className="block truncate text-sm font-semibold text-[var(--foreground)]">
+                                  {d.original_filename}
+                                </span>
+                                <span className="mt-1 block text-xs text-[var(--ink-soft)]">
+                                  #{d.id} · {d.page_count ?? "?"} pages
+                                </span>
+                                <span className="mt-0.5 block text-xs text-[var(--ink-soft)]">
+                                  {formatUploadedAt(d.uploaded_at)}
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(d)}
+                                disabled={deletingId === d.id}
+                                className="shrink-0 cursor-pointer rounded-md border border-[color:color-mix(in_oklch,var(--danger)_30%,var(--line))] bg-[color:color-mix(in_oklch,var(--danger)_8%,var(--surface))] px-2 py-1 text-xs font-semibold text-[color:color-mix(in_oklch,var(--danger)_70%,var(--foreground))] transition hover:bg-[color:color-mix(in_oklch,var(--danger)_12%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50"
+                                aria-label={`Delete ${d.original_filename}`}
+                              >
+                                {deletingId === d.id ? "Deleting..." : "Remove"}
+                              </button>
+                            </div>
+                          </article>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
-          </section>
 
-          <section className="flex min-h-[280px] flex-col rounded-xl border border-zinc-200 bg-white shadow-sm">
-            <div className="border-b border-zinc-200 px-4 py-3">
-              <h2 className="text-sm font-medium">Parsed content</h2>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
+            <div className="min-h-0 p-4 sm:p-6">
               {!selected ? (
-                <p className="text-sm text-zinc-500">
-                  Select a document from the list to view extracted metadata
-                  and full text.
-                </p>
+                <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_96%,var(--accent)_2%)] p-8 text-center">
+                  <p className="max-w-[36ch] text-sm leading-relaxed text-[var(--ink-soft)]">
+                    Select a referral from the queue to see extracted narrative
+                    context and confirm triage readiness.
+                  </p>
+                </div>
               ) : (
                 <div className="flex flex-col gap-4">
                   <div>
@@ -362,17 +444,55 @@ export default function Home() {
                     <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                       Extracted text
                     </h3>
-                    <pre className="mt-2 max-h-[min(420px,50vh)] overflow-auto whitespace-pre-wrap rounded-lg bg-zinc-50 p-3 font-mono text-xs leading-relaxed text-zinc-800">
-                      {selected.raw_text?.trim()
-                        ? selected.raw_text
-                        : "(No text could be extracted — the PDF may be image-only.)"}
-                    </pre>
+                    <p className="mt-1 text-sm text-[var(--ink-soft)]">
+                      Referral #{selected.id} · {selected.page_count ?? "?"} pages · {" "}
+                      {formatUploadedAt(selected.uploaded_at)}
+                    </p>
+                  </header>
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-lg border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_98%,var(--accent)_1%)] p-3">
+                      <p className="text-xs uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                        Author
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+                        {selected.parsed_json?.meta.author ?? "Not detected"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_98%,var(--accent)_1%)] p-3">
+                      <p className="text-xs uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                        Title
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+                        {selected.parsed_json?.meta.title ?? "Not detected"}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_98%,var(--accent)_1%)] p-3">
+                      <p className="text-xs uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                        Subject
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+                        {selected.parsed_json?.meta.subject ?? "Not detected"}
+                      </p>
+                    </div>
                   </div>
-                </div>
+
+                  <section className="rounded-xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_97%,var(--accent)_2%)] p-4 sm:p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+                      Extracted summary
+                    </p>
+                    <p className="mt-3 whitespace-pre-wrap text-[0.97rem] leading-relaxed text-[var(--foreground)]">
+                      {selected.text_excerpt ??
+                        selected.parsed_json?.meta.subject ??
+                        selected.raw_text?.slice(0, 1000) ??
+                        "No description available for this document yet."}
+                    </p>
+                  </section>
+                </article>
               )}
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
       </div>
     </div>
   );
