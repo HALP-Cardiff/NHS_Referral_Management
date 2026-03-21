@@ -1,0 +1,21 @@
+{
+  "name": "nhs-referral-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express API for NHS Referral Management",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
