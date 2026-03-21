@@ -27,6 +27,9 @@ type DocSummary = {
   uploaded_at: string;
   text_excerpt?: string;
   parsed_json?: ParsedJson | null;
+  has_video?: boolean;
+  video_original_filename?: string | null;
+  video_mime_type?: string | null;
 };
 
 type DocDetail = DocSummary & { raw_text?: string };
@@ -40,6 +43,22 @@ function formatUploadedAt(value: string) {
   });
 }
 
+const pickerButtonClass =
+  "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-[color:color-mix(in_oklch,var(--accent)_20%,var(--line))] bg-[var(--surface)] px-6 py-2.5 text-[1.05rem] font-semibold text-[var(--accent-strong)] shadow-[0_8px_22px_color-mix(in_oklch,var(--accent)_10%,transparent)] transition duration-200 ease-out hover:border-[var(--accent)] hover:shadow-[0_10px_24px_color-mix(in_oklch,var(--accent)_14%,transparent)] disabled:cursor-not-allowed disabled:opacity-50";
+
+function VideoGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Zm2 0v8h12V8H6Zm3.5 2.25a.75.75 0 0 1 .45.15l2.75 1.83a.75.75 0 0 1 0 1.24l-2.75 1.83A.75.75 0 0 1 8.5 14.5v-3.5a.75.75 0 0 1 .75-.75Z" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [docs, setDocs] = useState<DocSummary[]>([]);
   const [selected, setSelected] = useState<DocDetail | null>(null);
@@ -49,13 +68,24 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
 
   function isPdf(candidate: File) {
     return (
       candidate.type === "application/pdf" ||
       candidate.name.toLowerCase().endsWith(".pdf")
     );
+  }
+
+  function isVideo(candidate: File) {
+    const m = (candidate.type || "").toLowerCase();
+    if (m === "video/mp4" || m === "video/webm" || m === "video/quicktime") {
+      return true;
+    }
+    const n = candidate.name.toLowerCase();
+    return n.endsWith(".mp4") || n.endsWith(".webm") || n.endsWith(".mov");
   }
 
   function selectFile(candidate: File | null) {
@@ -77,11 +107,52 @@ export default function Home() {
     setFile(candidate);
   }
 
+  function selectVideo(candidate: File | null) {
+    if (!candidate) {
+      setVideoFile(null);
+      if (videoInputRef.current) {
+        videoInputRef.current.value = "";
+      }
+      return;
+    }
+
+    if (!file) {
+      setError("Select a referral PDF before attaching a video.");
+      if (videoInputRef.current) {
+        videoInputRef.current.value = "";
+      }
+      return;
+    }
+
+    if (!isVideo(candidate)) {
+      setError("Please choose an MP4, WebM, or MOV file.");
+      setVideoFile(null);
+      if (videoInputRef.current) {
+        videoInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setError(null);
+    setVideoFile(candidate);
+  }
+
+  function clearVideo() {
+    setVideoFile(null);
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
+    }
+  }
+
   function clearSelectedFile() {
     setFile(null);
+    setVideoFile(null);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+    if (videoInputRef.current) {
+      videoInputRef.current.value = "";
     }
   }
 
@@ -134,6 +205,9 @@ export default function Home() {
     try {
       const fd = new FormData();
       fd.append("file", file);
+      if (videoFile) {
+        fd.append("video", videoFile);
+      }
       const r = await fetch(apiUrl("/api/documents"), {
         method: "POST",
         body: fd,
@@ -146,8 +220,12 @@ export default function Home() {
       }
       const doc = body as DocDetail;
       setFile(null);
+      setVideoFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
+      if (videoInputRef.current) {
+        videoInputRef.current.value = "";
       }
       await loadList();
       setSelected(doc);
@@ -235,6 +313,14 @@ export default function Home() {
                 className="sr-only"
                 onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
               />
+              <input
+                id="referral-video"
+                ref={videoInputRef}
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+                className="sr-only"
+                onChange={(e) => selectVideo(e.target.files?.[0] ?? null)}
+              />
               <div
                 onDragEnter={(e) => {
                   e.preventDefault();
@@ -251,7 +337,23 @@ export default function Home() {
                 onDrop={(e) => {
                   e.preventDefault();
                   setIsDragActive(false);
-                  selectFile(e.dataTransfer.files?.[0] ?? null);
+                  const dropped = e.dataTransfer.files?.[0];
+                  if (!dropped) return;
+                  if (isPdf(dropped)) {
+                    selectFile(dropped);
+                  } else if (isVideo(dropped)) {
+                    if (!file) {
+                      setError(
+                        "Select or drop a PDF before adding a video (MP4, WebM, or MOV)."
+                      );
+                      return;
+                    }
+                    selectVideo(dropped);
+                  } else {
+                    setError(
+                      "Please drop a PDF referral file, or a supported video after a PDF is selected."
+                    );
+                  }
                 }}
                 onClick={() => fileInputRef.current?.click()}
                 onKeyDown={(e) => {
@@ -262,7 +364,7 @@ export default function Home() {
                 }}
                 role="button"
                 tabIndex={0}
-                aria-label="Drop PDF here or browse files"
+                aria-label="Drop a PDF here or browse files; add a video after a PDF is selected"
                 className={`flex cursor-pointer rounded-2xl border-2 border-dashed transition duration-200 ease-out ${
                   file
                     ? "min-h-[92px] items-center justify-between gap-3 px-4 py-3 text-left"
@@ -275,37 +377,82 @@ export default function Home() {
               >
                 {file ? (
                   <>
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex min-w-0 max-w-[min(100%,420px)] items-center gap-2 rounded-lg border border-[#d96363] bg-[#e87878] px-2.5 py-2"
-                    >
-                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#dc6666] text-white">
-                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-                          <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-5-5Zm0 2.5L16.5 7H14V4.5ZM8 11.25c0-.41.34-.75.75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Zm0 3.5c0-.41.34-.75.75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Z" />
-                        </svg>
-                      </span>
-                      <span className="truncate text-sm font-semibold text-white">
-                        {file.name}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={uploading}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          clearSelectedFile();
-                        }}
-                        className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#cc5959] bg-[#dc6666] text-sm font-bold text-white transition hover:bg-[#cf5e5e] disabled:cursor-not-allowed disabled:opacity-50"
-                        aria-label="Clear selected file"
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex min-w-0 max-w-[min(100%,420px)] items-center gap-2 rounded-lg border border-[#d96363] bg-[#e87878] px-2.5 py-2"
                       >
-                        ×
-                      </button>
+                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#dc6666] text-white">
+                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                            <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-5-5Zm0 2.5L16.5 7H14V4.5ZM8 11.25c0-.41.34-.75.75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Zm0 3.5c0-.41.34-.75.75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Z" />
+                          </svg>
+                        </span>
+                        <span className="truncate text-sm font-semibold text-white">
+                          {file.name}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={uploading}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            clearSelectedFile();
+                          }}
+                          className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#cc5959] bg-[#dc6666] text-sm font-bold text-white transition hover:bg-[#cf5e5e] disabled:cursor-not-allowed disabled:opacity-50"
+                          aria-label="Clear selected file"
+                        >
+                          ×
+                        </button>
+                      </div>
+
+                      {videoFile ? (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex min-w-0 max-w-[min(100%,420px)] items-center gap-2 rounded-lg border border-[color:color-mix(in_oklch,var(--accent)_35%,var(--line))] bg-[color:color-mix(in_oklch,var(--accent)_12%,var(--surface))] px-2.5 py-2"
+                        >
+                          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[color:color-mix(in_oklch,var(--accent)_22%,var(--surface))] text-[var(--accent-strong)]">
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                              <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Zm2 0v8h12V8H6Zm3.5 2.25a.75.75 0 0 1 .45.15l2.75 1.83a.75.75 0 0 1 0 1.24l-2.75 1.83A.75.75 0 0 1 8.5 14.5v-3.5a.75.75 0 0 1 .75-.75Z" />
+                            </svg>
+                          </span>
+                          <span className="truncate text-sm font-semibold text-[var(--foreground)]">
+                            {videoFile.name}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={uploading}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              clearVideo();
+                            }}
+                            className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[var(--surface)] text-sm font-bold text-[var(--accent-strong)] transition hover:bg-[color:color-mix(in_oklch,var(--accent)_8%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50"
+                            aria-label="Remove attached video"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={uploading}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            videoInputRef.current?.click();
+                          }}
+                          className={`${pickerButtonClass} w-fit max-w-full py-2 text-sm`}
+                        >
+                          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="currentColor" aria-hidden="true">
+                            <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Zm2 0v8h12V8H6Zm3.5 2.25a.75.75 0 0 1 .45.15l2.75 1.83a.75.75 0 0 1 0 1.24l-2.75 1.83A.75.75 0 0 1 8.5 14.5v-3.5a.75.75 0 0 1 .75-.75Z" />
+                          </svg>
+                          Attach video (optional)
+                        </button>
+                      )}
                     </div>
 
                     <button
                       type="submit"
                       disabled={uploading}
                       onClick={(e) => e.stopPropagation()}
-                      className="h-12 w-[170px] shrink-0 cursor-pointer rounded-xl border border-transparent bg-[linear-gradient(95deg,color-mix(in_oklch,var(--accent-strong)_96%,black),color-mix(in_oklch,var(--accent)_88%,white))] px-4 text-base font-semibold text-[var(--surface)] shadow-[0_10px_22px_color-mix(in_oklch,var(--accent)_24%,transparent)] transition duration-200 ease-out hover:translate-y-[-1px] hover:shadow-[0_14px_26px_color-mix(in_oklch,var(--accent)_30%,transparent)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-12 w-[170px] shrink-0 cursor-pointer self-start rounded-xl border border-transparent bg-[linear-gradient(95deg,color-mix(in_oklch,var(--accent-strong)_96%,black),color-mix(in_oklch,var(--accent)_88%,white))] px-4 text-base font-semibold text-[var(--surface)] shadow-[0_10px_22px_color-mix(in_oklch,var(--accent)_24%,transparent)] transition duration-200 ease-out hover:translate-y-[-1px] hover:shadow-[0_14px_26px_color-mix(in_oklch,var(--accent)_30%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 sm:self-center"
                     >
                       {uploading ? "Uploading..." : "Upload"}
                     </button>
@@ -321,14 +468,50 @@ export default function Home() {
                       Drag and drop referral form
                     </p>
                     <p className="mt-1.5 max-w-[46ch] text-[0.95rem] text-[var(--ink-soft)]">
-                      Supports PDF referrals and clinical exports. Drop the file in this box to upload.
+                      Supports PDF referrals and clinical exports. After you choose a PDF, you can attach an optional MP4, WebM, or MOV clip in the same upload.
                     </p>
                     <p className="mt-4 text-xs font-medium text-[var(--ink-soft)]">
                       No PDF selected
                     </p>
-                  <span className="mt-4 inline-flex rounded-xl border border-[color:color-mix(in_oklch,var(--accent)_20%,var(--line))] bg-[var(--surface)] px-6 py-2.5 text-[1.05rem] font-semibold text-[var(--accent-strong)] shadow-[0_8px_22px_color-mix(in_oklch,var(--accent)_10%,transparent)]">
-                    Browse Files
-                  </span>
+                    <p className="mt-1 max-w-[46ch] text-xs text-[var(--ink-soft)]">
+                      Video upload stays disabled until a referral PDF is selected.
+                    </p>
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-4 flex flex-wrap items-center justify-center gap-3"
+                    >
+                      <button
+                        type="button"
+                        disabled={uploading}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                        className={pickerButtonClass}
+                      >
+                        Browse Files
+                      </button>
+                      <button
+                        type="button"
+                        disabled={uploading || !file}
+                        title={
+                          !file
+                            ? "Select a referral PDF first to attach a video"
+                            : undefined
+                        }
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!file) return;
+                          videoInputRef.current?.click();
+                        }}
+                        className={pickerButtonClass}
+                      >
+                        <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor" aria-hidden="true">
+                          <path d="M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Zm2 0v8h12V8H6Zm3.5 2.25a.75.75 0 0 1 .45.15l2.75 1.83a.75.75 0 0 1 0 1.24l-2.75 1.83A.75.75 0 0 1 8.5 14.5v-3.5a.75.75 0 0 1 .75-.75Z" />
+                        </svg>
+                        Video upload
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
@@ -384,8 +567,16 @@ export default function Home() {
                                 <span className="block truncate text-sm font-semibold text-[var(--foreground)]">
                                   {d.original_filename}
                                 </span>
-                                <span className="mt-1 block text-xs text-[var(--ink-soft)]">
-                                  #{d.id} · {d.page_count ?? "?"} pages
+                                <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--ink-soft)]">
+                                  <span>
+                                    #{d.id} · {d.page_count ?? "?"} pages
+                                  </span>
+                                  {d.has_video ? (
+                                    <span className="inline-flex items-center gap-0.5 rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[color:color-mix(in_oklch,var(--accent)_10%,var(--surface))] px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--accent-strong)]">
+                                      <VideoGlyph className="h-3 w-3" />
+                                      Video
+                                    </span>
+                                  ) : null}
                                 </span>
                                 <span className="mt-0.5 block text-xs text-[var(--ink-soft)]">
                                   {formatUploadedAt(d.uploaded_at)}
@@ -410,23 +601,31 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="min-h-0 p-4 sm:p-6">
+            <div className="flex min-h-0 flex-col p-4 sm:p-6">
               {!selected ? (
-                <div className="flex h-full items-center justify-center rounded-xl border border-dashed border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_96%,var(--accent)_2%)] p-8 text-center">
+                <div className="flex min-h-[200px] flex-1 items-center justify-center rounded-xl border border-dashed border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_96%,var(--accent)_2%)] p-8 text-center">
                   <p className="max-w-[36ch] text-sm leading-relaxed text-[var(--ink-soft)]">
                     Select a referral from the queue to see extracted narrative
                     context and confirm triage readiness.
                   </p>
                 </div>
               ) : (
-                <article className="grid h-full grid-rows-[auto_auto_1fr] gap-4 overflow-auto">
+                <article className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto">
                   <header>
                     <h3 className="font-display text-[clamp(1.22rem,2.2vw,2rem)] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
                       {selected.original_filename}
                     </h3>
-                    <p className="mt-1 text-sm text-[var(--ink-soft)]">
-                      Referral #{selected.id} · {selected.page_count ?? "?"} pages · {" "}
-                      {formatUploadedAt(selected.uploaded_at)}
+                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[var(--ink-soft)]">
+                      <span>
+                        Referral #{selected.id} · {selected.page_count ?? "?"}{" "}
+                        pages · {formatUploadedAt(selected.uploaded_at)}
+                      </span>
+                      {selected.has_video ? (
+                        <span className="inline-flex items-center gap-0.5 rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[color:color-mix(in_oklch,var(--accent)_10%,var(--surface))] px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--accent-strong)]">
+                          <VideoGlyph className="h-3 w-3" />
+                          Video attached
+                        </span>
+                      ) : null}
                     </p>
                   </header>
 
@@ -457,11 +656,52 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <section className="rounded-xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_97%,var(--accent)_2%)] p-4 sm:p-5">
+                  {selected.has_video ? (
+                    <details className="group shrink-0 rounded-xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_97%,var(--accent)_2%)] [&_summary::-webkit-details-marker]:hidden">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                        <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+                          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[color:color-mix(in_oklch,var(--accent)_14%,var(--surface))] text-[var(--accent-strong)]">
+                            <VideoGlyph className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block">Attached video</span>
+                            <span className="mt-0.5 block truncate text-xs font-normal text-[var(--ink-soft)]">
+                              {selected.video_original_filename ?? "Clip"}
+                            </span>
+                          </span>
+                        </span>
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-5 w-5 shrink-0 text-[var(--ink-soft)] transition-transform duration-200 group-open:rotate-180"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      </summary>
+                      <div className="border-t border-[var(--line)] px-4 pb-4 pt-3 sm:px-5">
+                        <video
+                          className="aspect-video w-full max-h-[min(70vh,520px)] rounded-lg bg-black object-contain"
+                          controls
+                          playsInline
+                          preload="metadata"
+                          src={apiUrl(`/api/documents/${selected.id}/video`)}
+                        >
+                          Your browser does not support embedded video.
+                        </video>
+                      </div>
+                    </details>
+                  ) : null}
+
+                  <section className="flex min-h-0 flex-1 flex-col rounded-xl border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_97%,var(--accent)_2%)] p-4 sm:p-5">
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
                       Extracted summary
                     </p>
-                    <p className="mt-3 whitespace-pre-wrap text-[0.97rem] leading-relaxed text-[var(--foreground)]">
+                    <p className="mt-3 min-h-0 flex-1 overflow-auto whitespace-pre-wrap text-[0.97rem] leading-relaxed text-[var(--foreground)]">
                       {selected.text_excerpt ??
                         selected.parsed_json?.meta.subject ??
                         selected.raw_text?.slice(0, 1000) ??
