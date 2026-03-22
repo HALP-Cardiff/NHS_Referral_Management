@@ -1,4 +1,8 @@
 node_modules/
+__pycache__/
+*.pyc
+*.egg-info/
+bn-env/
 
 .env
 .env.local
