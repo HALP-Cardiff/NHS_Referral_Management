@@ -1,0 +1,7 @@
+pgmpy>=0.1.25
+numpy
+click
+rich
+
+[dev]
+pytest>=7.0

@@ -1,1 +1,16 @@
 node_modules/
+.next/
+__pycache__/
+*.pyc
+*.egg-info/
+bn-env/
+build/
+
+.env
+.env.local
+.env*.local
+
+*.log
+.DS_Store
+
+backend/src/data/

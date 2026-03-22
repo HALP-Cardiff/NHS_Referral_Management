@@ -6,7 +6,7 @@
   --surface: oklch(0.992 0.004 220);
   --surface-2: oklch(0.967 0.009 225);
   --line: oklch(0.874 0.013 228);
-  --ink-soft: oklch(0.44 0.02 232);
+  --ink-soft: oklch(0.37 0.02 232);
   --accent: oklch(0.52 0.085 235);
   --accent-strong: oklch(0.46 0.1 235);
   --danger: oklch(0.57 0.15 26);
@@ -65,9 +65,33 @@ body {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+summary:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 2px solid color-mix(in oklch, var(--accent-strong) 74%, var(--line));
   outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 50;
+  transform: translateY(-140%);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--foreground);
+  transition: transform 120ms ease-out;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
 }
 
 @keyframes rise-in {

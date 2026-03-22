@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: alac-wheelchair-bn
+    runtime: docker
+    dockerfilePath: bn-service/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: BN_API_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+    healthCheckPath: /health

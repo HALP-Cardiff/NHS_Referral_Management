@@ -1,0 +1,178 @@
+{
+  "narrow_doorway_elderly": {
+    "name": "Narrow doorway elderly",
+    "description": "Elderly stroke patient with narrow door and narrow turning circle.",
+    "evidence": {
+      "age": "elderly", "weight": "standard", "diag": "stroke",
+      "contra": "none", "seizure": "never", "mobil": "limited_walking",
+      "sex": "female", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "unable", "jointLim": "able_to_sit", "transfer": "assisted",
+      "fatigue": "stable", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "no",
+      "access_another_floor": "yes_impossible", "is_carer": "no",
+      "level_support": "has_visiting_carer", "small_door": "narrow_under_27",
+      "min_turn_circle": "narrow_under_40", "motability": "access_to_car"
+    }
+  },
+  "bariatric_patient": {
+    "name": "Bariatric patient",
+    "description": "Bariatric patient with narrow doors.",
+    "evidence": {
+      "age": "adult", "weight": "bariatric", "diag": "fracture",
+      "contra": "none", "seizure": "never", "mobil": "limited_walking",
+      "sex": "male", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "bariatric_over_20", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "able", "jointLim": "able_to_sit", "transfer": "assisted",
+      "fatigue": "stable", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "no",
+      "access_another_floor": "yes_possible_in_wheelchair", "is_carer": "no",
+      "level_support": "has_visiting_carer", "small_door": "narrow_under_27",
+      "min_turn_circle": "standard_40_50", "motability": "access_to_car"
+    }
+  },
+  "progressive_mmd": {
+    "name": "Progressive MND",
+    "description": "MND with deteriorating fatigue.",
+    "evidence": {
+      "age": "adult", "weight": "standard", "diag": "MND",
+      "contra": "fatigue", "seizure": "never", "mobil": "limited_walking",
+      "sex": "male", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "able", "jointLim": "able_to_sit", "transfer": "assisted",
+      "fatigue": "deteriorates", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "yes",
+      "access_another_floor": "yes_possible_in_wheelchair", "is_carer": "no",
+      "level_support": "has_visiting_carer", "small_door": "standard_27_30",
+      "min_turn_circle": "standard_40_50", "motability": "access_to_car"
+    }
+  },
+  "paediatric_cp": {
+    "name": "Paediatric CP",
+    "description": "Paediatric CP, falls forward, unable to sit.",
+    "evidence": {
+      "age": "paediatric", "weight": "standard", "diag": "CP",
+      "contra": "none", "seizure": "never", "mobil": "unable_to_walk",
+      "sex": "female", "posture": "falls_forward", "height": "low_under_20",
+      "hip": "narrow_under_16", "legUpper": "short_under_16", "lowerLeg": "short_under_16",
+      "selfPropel": "unable", "jointLim": "unable_to_sit", "transfer": "dependent",
+      "fatigue": "stable", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "no",
+      "access_another_floor": "yes_possible_in_wheelchair", "is_carer": "no",
+      "level_support": "has_carer_24hrs", "small_door": "standard_27_30",
+      "min_turn_circle": "standard_40_50", "motability": "access_to_car"
+    }
+  },
+  "hospital_discharge_pressure": {
+    "name": "Hospital discharge pressure",
+    "description": "Stroke in hospital, narrow doors, lives alone.",
+    "evidence": {
+      "age": "elderly", "weight": "standard", "diag": "stroke",
+      "contra": "none", "seizure": "never", "mobil": "limited_walking",
+      "sex": "male", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "unable", "jointLim": "able_to_sit", "transfer": "assisted",
+      "fatigue": "deteriorates", "inHospital": "required",
+      "lives_alone": "yes", "multiple_environments": "no",
+      "access_another_floor": "yes_impossible", "is_carer": "no",
+      "level_support": "no_carer", "small_door": "narrow_under_27",
+      "min_turn_circle": "narrow_under_40", "motability": "no_access_to_car"
+    }
+  },
+  "cardiac_contraindication": {
+    "name": "Cardiac contraindication",
+    "description": "Adult able to self-propel but contra=cardiac.",
+    "evidence": {
+      "age": "adult", "weight": "standard", "diag": "MS",
+      "contra": "cardiac", "seizure": "never", "mobil": "limited_walking",
+      "sex": "male", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "able", "jointLim": "able_to_sit", "transfer": "independent",
+      "fatigue": "stable", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "yes",
+      "access_another_floor": "yes_possible_in_wheelchair", "is_carer": "no",
+      "level_support": "has_visiting_carer", "small_door": "wide_30_33",
+      "min_turn_circle": "wide_50_60", "motability": "access_to_car"
+    }
+  },
+  "recent_seizure": {
+    "name": "Recent seizure",
+    "description": "Seizure in last 12 months, type must not be powered.",
+    "evidence": {
+      "age": "adult", "weight": "standard", "diag": "TBI",
+      "contra": "none", "seizure": "in_last_12_months", "mobil": "unable_to_walk",
+      "sex": "male", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "unable", "jointLim": "able_to_sit", "transfer": "assisted",
+      "fatigue": "deteriorates", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "no",
+      "access_another_floor": "yes_possible_in_wheelchair", "is_carer": "no",
+      "level_support": "has_visiting_carer", "small_door": "standard_27_30",
+      "min_turn_circle": "standard_40_50", "motability": "access_to_car"
+    }
+  },
+  "active_adult_propel": {
+    "name": "Active adult, can propel",
+    "description": "Fracture, able to propel, no contraindication.",
+    "evidence": {
+      "age": "adult", "weight": "standard", "diag": "fracture",
+      "contra": "none", "seizure": "never", "mobil": "limited_walking",
+      "sex": "male", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "able", "jointLim": "able_to_sit", "transfer": "independent",
+      "fatigue": "stable", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "no",
+      "access_another_floor": "yes_possible_in_wheelchair", "is_carer": "no",
+      "level_support": "has_visiting_carer", "small_door": "standard_27_30",
+      "min_turn_circle": "standard_40_50", "motability": "access_to_car"
+    }
+  },
+  "caring_responsibility": {
+    "name": "Caring responsibility",
+    "description": "MS patient, is carer, push towards powered.",
+    "evidence": {
+      "age": "adult", "weight": "standard", "diag": "MS",
+      "contra": "none", "seizure": "never", "mobil": "limited_walking",
+      "sex": "female", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "able", "jointLim": "able_to_sit", "transfer": "independent",
+      "fatigue": "stable", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "yes",
+      "access_another_floor": "yes_possible_in_wheelchair", "is_carer": "yes",
+      "level_support": "has_visiting_carer", "small_door": "wide_30_33",
+      "min_turn_circle": "wide_50_60", "motability": "access_to_car"
+    }
+  },
+  "living_alone_no_support": {
+    "name": "Living alone, no support",
+    "description": "Elderly, lives alone, no carer, no car.",
+    "evidence": {
+      "age": "elderly", "weight": "standard", "diag": "MS",
+      "contra": "fatigue", "seizure": "never", "mobil": "limited_walking",
+      "sex": "female", "posture": "can_maintain_sit", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "unable", "jointLim": "able_to_sit", "transfer": "assisted",
+      "fatigue": "deteriorates", "inHospital": "not_required_for_discharge",
+      "lives_alone": "yes", "multiple_environments": "no",
+      "access_another_floor": "yes_impossible", "is_carer": "no",
+      "level_support": "no_carer", "small_door": "standard_27_30",
+      "min_turn_circle": "standard_40_50", "motability": "no_access_to_car"
+    }
+  },
+  "posture_falls": {
+    "name": "Posture falls",
+    "description": "Adult stroke, falls sideways, dependent transfer.",
+    "evidence": {
+      "age": "adult", "weight": "standard", "diag": "stroke",
+      "contra": "none", "seizure": "never", "mobil": "unable_to_walk",
+      "sex": "male", "posture": "falls_sideways", "height": "standard_20_21",
+      "hip": "standard_16_18", "legUpper": "standard_16_19", "lowerLeg": "standard_16_20",
+      "selfPropel": "unable", "jointLim": "able_to_sit", "transfer": "dependent",
+      "fatigue": "stable", "inHospital": "not_required_for_discharge",
+      "lives_alone": "no", "multiple_environments": "no",
+      "access_another_floor": "yes_possible_in_wheelchair", "is_carer": "no",
+      "level_support": "has_visiting_carer", "small_door": "standard_27_30",
+      "min_turn_circle": "standard_40_50", "motability": "access_to_car"
+    }
+  }
+}

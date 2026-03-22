@@ -1,0 +1,2 @@
+[console_scripts]
+alac = alac.cli:main

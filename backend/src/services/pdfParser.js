@@ -58,16 +58,29 @@ function normalizeText(raw) {
 }
 
 /**
+ * Turn a plain-text fragment into a regex string where spaces, hyphens,
+ * and slashes are all interchangeable separators.
+ */
+function tokenizeFlexible(text) {
+  const tokens = text.split(/[\s/\-]+/).filter(Boolean);
+  return tokens.map((t) => escapeRegex(t)).join("[\\s/\\-]+");
+}
+
+/**
  * Build a flexible regex for a field label.
- * Handles things like "Age/ DOB", "Mobility (limited/walking)",
- * "Stairs/Lifts" by allowing flexible whitespace around slashes and parens.
+ * - Spaces, hyphens, and slashes between words are interchangeable
+ *   ("Age/ DOB" matches "Age/DOB", "Self Propelled" matches "Self-propelled")
+ * - Parenthetical qualifiers are optional
+ *   ("Mobility (limited/walking)" matches plain "Mobility")
  */
 function buildFlexLabelPattern(label) {
-  const escaped = escapeRegex(label);
-  return escaped
-    .replace(/\\\//g, "\\s*/\\s*")
-    .replace(/\\\(/g, "\\s*\\(\\s*")
-    .replace(/\\\)/g, "\\s*\\)\\s*");
+  const parenMatch = label.match(/^(.+?)\s*\((.+)\)\s*$/);
+  if (parenMatch) {
+    const base = tokenizeFlexible(parenMatch[1].trim());
+    const qualifier = tokenizeFlexible(parenMatch[2].trim());
+    return `${base}(?:\\s*\\(\\s*${qualifier}\\s*\\))?`;
+  }
+  return tokenizeFlexible(label);
 }
 
 /**
@@ -172,7 +185,7 @@ function parseAlecFields(rawText) {
 
 function detectFormType(rawText) {
   const lower = rawText.toLowerCase();
-  if (lower.includes("alec") && lower.includes("screening form")) {
+  if ((lower.includes("alec") || lower.includes("alac")) && lower.includes("screening form")) {
     return "alec_screening";
   }
   return null;
@@ -192,8 +205,8 @@ async function parseAlecPdf(buffer) {
       isValid: false,
       formDetected: false,
       error:
-        "This does not appear to be a valid ALEC Screening Form. " +
-        "Ensure the PDF contains the header 'ALEC Service – Screening Form'.",
+        "This does not appear to be a valid ALAC Screening Form. " +
+        "Ensure the PDF contains the header 'ALAC Service – Screening Form'.",
     };
   }
 
