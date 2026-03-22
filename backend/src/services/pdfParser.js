@@ -192,8 +192,8 @@ async function parseAlecPdf(buffer) {
       isValid: false,
       formDetected: false,
       error:
-        "This does not appear to be a valid ALEC Screening Form. " +
-        "Ensure the PDF contains the header 'ALEC Service – Screening Form'.",
+        "This does not appear to be a valid ALAC Screening Form. " +
+        "Ensure the PDF contains the header 'ALAC Service – Screening Form'.",
     };
   }
 

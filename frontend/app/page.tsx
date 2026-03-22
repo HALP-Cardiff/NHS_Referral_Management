@@ -278,6 +278,7 @@ export default function Home() {
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const selectedHeadingRef = useRef<HTMLHeadingElement | null>(null);
 
   function isPdf(candidate: File) {
     return (
@@ -366,6 +367,12 @@ export default function Home() {
   useEffect(() => {
     loadList();
   }, [loadList]);
+
+  useEffect(() => {
+    if (selected?.id && selectedHeadingRef.current) {
+      selectedHeadingRef.current.focus();
+    }
+  }, [selected?.id]);
 
   async function loadDetail(id: number) {
     setError(null);
@@ -478,10 +485,43 @@ export default function Home() {
   const selectedFields = selected?.parsed_json?.fields ?? {};
   const grouped = groupFieldsBySection(selectedFields);
   const showFieldGrid = hasFields(selected);
+  const isBusy = uploading || listLoading || analysing;
+  const screenReaderStatus = uploading
+    ? "Uploading referral PDF."
+    : analysing
+      ? "Running AI triage analysis."
+      : listLoading
+        ? "Loading referrals."
+        : selected
+          ? `Viewing referral ${selected.original_filename}.`
+          : file
+            ? `Selected PDF: ${file.name}`
+            : docs.length === 0
+              ? "No referrals in queue."
+              : `${docs.length} referrals in queue.`;
+  const dropzoneInteractiveProps: React.HTMLAttributes<HTMLDivElement> = file
+    ? {}
+    : {
+        onClick: () => fileInputRef.current?.click(),
+        onKeyDown: (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        },
+        role: "button",
+        tabIndex: 0,
+        "aria-label":
+          "Drop a PDF here or browse files; add a video after a PDF is selected",
+        "aria-describedby": "upload-dropzone-help",
+      };
 
   return (
-    <div className="triage-shell min-h-full">
+    <main id="main-content" className="triage-shell min-h-full" aria-busy={isBusy}>
       <div className="mx-auto flex w-full max-w-[1180px] flex-1 flex-col gap-6 px-4 py-5 sm:px-7 sm:py-8">
+        <p className="sr-only" aria-live="polite" aria-atomic="true">
+          {screenReaderStatus}
+        </p>
         {/* ── Header ─────────────────────────────────────────────── */}
         <header className="section-enter panel delay-1 overflow-hidden p-5 sm:p-7">
           <div className="grid gap-4 md:grid-cols-[1.3fr_1fr] md:items-end">
@@ -517,7 +557,7 @@ export default function Home() {
             </h3>
             <p className="mt-1 text-sm text-[var(--ink-soft)]">
               The following fields could not be extracted from the uploaded PDF.
-              Ensure all required fields are filled in the ALEC Screening Form.
+              Ensure all required fields are filled in the ALAC Screening Form.
             </p>
             {SECTION_ORDER.map((sectionKey) => {
               const missing = uploadError.missing_fields!.filter(
@@ -558,7 +598,7 @@ export default function Home() {
                           key={f.label}
                           className="rounded-lg border border-[var(--line)] bg-[var(--surface)] p-2.5"
                         >
-                          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-[var(--ink-soft)]">
                             {f.label}
                           </p>
                           <p className="mt-1 text-xs text-[var(--foreground)]">
@@ -574,14 +614,14 @@ export default function Home() {
         )}
 
         {/* ── Upload ─────────────────────────────────────────── */}
-        <section className="section-enter panel delay-2 p-5 sm:p-6">
+        <section aria-labelledby="upload-heading" className="section-enter panel delay-2 p-5 sm:p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="font-display text-[1.55rem] font-semibold tracking-tight text-[var(--foreground)]">
+              <h2 id="upload-heading" className="font-display text-[1.55rem] font-semibold tracking-tight text-[var(--foreground)]">
                 Upload
               </h2>
               <p className="text-sm text-[var(--ink-soft)]">
-                Add an ALEC Screening Form (PDF) for parsing and review.
+                Add an ALAC Screening Form (PDF) for parsing and review.
               </p>
             </div>
           </div>
@@ -593,6 +633,7 @@ export default function Home() {
                 type="file"
                 accept="application/pdf,.pdf"
                 className="sr-only"
+                aria-label="Select referral PDF"
                 onChange={(e) => selectFile(e.target.files?.[0] ?? null)}
               />
               <input
@@ -601,8 +642,12 @@ export default function Home() {
                 type="file"
                 accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
                 className="sr-only"
+                aria-label="Select optional video attachment"
                 onChange={(e) => selectVideo(e.target.files?.[0] ?? null)}
               />
+              <p id="upload-dropzone-help" className="sr-only">
+                Press Enter or Space to browse for a PDF when no file is selected.
+              </p>
               <div
                 onDragEnter={(e) => {
                   e.preventDefault();
@@ -633,20 +678,11 @@ export default function Home() {
                     selectVideo(dropped);
                   } else {
                     setError(
-                      "Please drop a PDF referral file, or a supported video after a PDF is selected.",
+                      "Please drop a PDF referral file."
                     );
                   }
                 }}
-                onClick={() => fileInputRef.current?.click()}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    fileInputRef.current?.click();
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label="Drop a PDF here or browse files; add a video after a PDF is selected"
+                {...dropzoneInteractiveProps}
                 className={`flex cursor-pointer rounded-2xl border-2 border-dashed transition duration-200 ease-out ${
                   file
                     ? "min-h-[92px] items-center justify-between gap-3 px-4 py-3 text-left"
@@ -662,9 +698,9 @@ export default function Home() {
                     <div className="flex min-w-0 flex-1 flex-col gap-2">
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex min-w-0 max-w-[min(100%,420px)] items-center gap-2 rounded-lg border border-[#d96363] bg-[#e87878] px-2.5 py-2"
+                        className="inline-flex w-fit max-w-full items-center gap-2 rounded-lg border border-[color:color-mix(in_oklch,var(--danger)_36%,var(--line))] bg-[color:color-mix(in_oklch,var(--danger)_20%,var(--surface))] px-2.5 py-2"
                       >
-                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#dc6666] text-white">
+                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[color:color-mix(in_oklch,var(--danger)_40%,var(--surface))] text-[color:color-mix(in_oklch,var(--danger)_72%,var(--foreground))]">
                           <svg
                             viewBox="0 0 24 24"
                             className="h-4 w-4"
@@ -674,7 +710,7 @@ export default function Home() {
                             <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7l-5-5Zm0 2.5L16.5 7H14V4.5ZM8 11.25c0-.41.34-.75.75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Zm0 3.5c0-.41.34-.75.75-.75h6.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1-.75-.75Z" />
                           </svg>
                         </span>
-                        <span className="truncate text-sm font-semibold text-white">
+                        <span className="truncate text-sm font-semibold text-[color:color-mix(in_oklch,var(--danger)_70%,var(--foreground))]">
                           {file.name}
                         </span>
                         <button
@@ -684,7 +720,7 @@ export default function Home() {
                             e.stopPropagation();
                             clearSelectedFile();
                           }}
-                          className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[#cc5959] bg-[#dc6666] text-sm font-bold text-white transition hover:bg-[#cf5e5e] disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[color:color-mix(in_oklch,var(--danger)_42%,var(--line))] bg-[color:color-mix(in_oklch,var(--danger)_30%,var(--surface))] text-sm font-bold text-[color:color-mix(in_oklch,var(--danger)_76%,var(--foreground))] transition hover:bg-[color:color-mix(in_oklch,var(--danger)_36%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50"
                           aria-label="Clear selected file"
                         >
                           &times;
@@ -709,25 +745,38 @@ export default function Home() {
                               e.stopPropagation();
                               clearVideo();
                             }}
-                            className="inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[var(--surface)] text-sm font-bold text-[var(--accent-strong)] transition hover:bg-[color:color-mix(in_oklch,var(--accent)_8%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[var(--surface)] text-sm font-bold text-[var(--accent-strong)] transition hover:bg-[color:color-mix(in_oklch,var(--accent)_8%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50"
                             aria-label="Remove attached video"
                           >
                             &times;
                           </button>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          disabled={uploading}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            videoInputRef.current?.click();
-                          }}
-                          className={`${pickerButtonClass} w-fit max-w-full py-2 text-sm`}
-                        >
-                          <VideoGlyph className="h-4 w-4 shrink-0" />
-                          Attach video (optional)
-                        </button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={uploading}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              fileInputRef.current?.click();
+                            }}
+                            className={`${pickerButtonClass} py-2 text-sm`}
+                          >
+                            Change PDF
+                          </button>
+                          <button
+                            type="button"
+                            disabled={uploading}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              videoInputRef.current?.click();
+                            }}
+                            className={`${pickerButtonClass} w-fit max-w-full py-2 text-sm`}
+                          >
+                            <VideoGlyph className="h-4 w-4 shrink-0" />
+                            Attach video (optional)
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -737,7 +786,7 @@ export default function Home() {
                       onClick={(e) => e.stopPropagation()}
                       className="h-12 w-[170px] shrink-0 cursor-pointer self-start rounded-xl border border-transparent bg-[linear-gradient(95deg,color-mix(in_oklch,var(--accent-strong)_96%,black),color-mix(in_oklch,var(--accent)_88%,white))] px-4 text-base font-semibold text-[var(--surface)] shadow-[0_10px_22px_color-mix(in_oklch,var(--accent)_24%,transparent)] transition duration-200 ease-out hover:translate-y-[-1px] hover:shadow-[0_14px_26px_color-mix(in_oklch,var(--accent)_30%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 sm:self-center"
                     >
-                      {uploading ? "Uploading..." : "Upload & Parse"}
+                      {uploading ? "Uploading..." : "Upload"}
                     </button>
                   </>
                 ) : (
@@ -753,7 +802,7 @@ export default function Home() {
                       </svg>
                     </span>
                     <p className="text-[clamp(1.28rem,1.85vw,1.8rem)] font-semibold tracking-tight text-[var(--foreground)]">
-                      Drag and drop ALEC Screening Form
+                      Drag and drop ALAC Screening Form
                     </p>
                     <p className="mt-1.5 max-w-[46ch] text-[0.95rem] text-[var(--ink-soft)]">
                       Upload a PDF referral form to automatically extract and
@@ -809,7 +858,7 @@ export default function Home() {
         </section>
 
         {/* ── Queue + Detail ─────────────────────────────────── */}
-        <section className="section-enter panel delay-3 flex min-h-[320px] max-h-[calc(100dvh-10rem)] flex-col overflow-y-auto overscroll-contain md:overflow-hidden">
+        <section aria-labelledby="queue-heading" className="section-enter panel delay-3 flex min-h-[320px] max-h-[calc(100dvh-10rem)] flex-col overflow-y-auto overscroll-contain md:overflow-hidden">
           <div className="grid min-h-0 flex-1 md:grid-cols-[320px_minmax(0,1fr)]">
             {/* Queue sidebar */}
             <div className="flex max-h-[min(42vh,22rem)] min-h-0 flex-col border-b border-[var(--line)] bg-[var(--surface-2)] p-3 md:max-h-none md:border-b-0 md:border-r">
@@ -817,13 +866,14 @@ export default function Home() {
                 <h2 className="font-display text-lg font-semibold tracking-tight text-[var(--foreground)]">
                   Previously Analysed Referrals
                 </h2>
-                <span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-2.5 py-0.5 text-xs font-semibold text-[var(--ink-soft)]">
+                <span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-2.5 py-0.5 text-xs font-semibold text-[var(--ink-soft)]" aria-label={`${docs.length} referrals in queue`}>
                   {docs.length}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={() => loadList()}
+                aria-label="Refresh referral queue"
                 className="mb-2 cursor-pointer rounded-md px-1.5 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--ink-soft)] transition hover:bg-[var(--surface)] hover:text-[var(--foreground)]"
               >
                 Refresh
@@ -831,7 +881,7 @@ export default function Home() {
 
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 sm:min-h-[200px]">
                 {listLoading ? (
-                  <p className="px-2 py-4 text-sm text-[var(--ink-soft)]">
+                  <p className="px-2 py-4 text-sm text-[var(--ink-soft)]" role="status" aria-live="polite">
                     Loading...
                   </p>
                 ) : docs.length === 0 ? (
@@ -855,6 +905,8 @@ export default function Home() {
                               <button
                                 type="button"
                                 onClick={() => loadDetail(d.id)}
+                                aria-label={`Open referral ${d.original_filename}`}
+                                aria-current={selectedDoc ? "true" : undefined}
                                 className="min-w-0 flex-1 cursor-pointer text-left"
                               >
                                 <span className="block truncate text-sm font-semibold text-[var(--foreground)]">
@@ -865,7 +917,7 @@ export default function Home() {
                                     #{d.id} &middot; {d.page_count ?? "?"} pages
                                   </span>
                                   {d.has_video ? (
-                                    <span className="inline-flex items-center gap-0.5 rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[color:color-mix(in_oklch,var(--accent)_10%,var(--surface))] px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--accent-strong)]">
+                                    <span className="inline-flex items-center gap-0.5 rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[color:color-mix(in_oklch,var(--accent)_10%,var(--surface))] px-1.5 py-0.5 text-[0.72rem] font-semibold uppercase tracking-wide text-[var(--accent-strong)]">
                                       <VideoGlyph className="h-3 w-3" />
                                       Video
                                     </span>
@@ -907,7 +959,11 @@ export default function Home() {
                 <article className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-gutter:stable]">
                   {/* Header */}
                   <header className="shrink-0">
-                    <h3 className="font-display text-[clamp(1.22rem,2.2vw,2rem)] font-semibold leading-tight tracking-tight text-[var(--foreground)]">
+                    <h3
+                      ref={selectedHeadingRef}
+                      tabIndex={-1}
+                      className="font-display text-[clamp(1.22rem,2.2vw,2rem)] font-semibold leading-tight tracking-tight text-[var(--foreground)]"
+                    >
                       {selected.original_filename}
                     </h3>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -917,13 +973,13 @@ export default function Home() {
                         {formatUploadedAt(selected.uploaded_at)}
                       </p>
                       {selected.parsed_json?.isValid && (
-                        <span className="inline-flex items-center gap-1 rounded-md border border-[color:color-mix(in_oklch,oklch(0.7_0.2_145)_28%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.7_0.2_145)_10%,var(--surface))] px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[oklch(0.45_0.15_145)]">
+                        <span className="inline-flex items-center gap-1 rounded-md border border-[color:color-mix(in_oklch,oklch(0.7_0.2_145)_28%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.7_0.2_145)_10%,var(--surface))] px-2 py-0.5 text-[0.72rem] font-semibold uppercase tracking-wide text-[oklch(0.45_0.15_145)]">
                           <CheckGlyph className="h-3 w-3" />
                           Valid
                         </span>
                       )}
                       {selected.has_video ? (
-                        <span className="inline-flex items-center gap-0.5 rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[color:color-mix(in_oklch,var(--accent)_10%,var(--surface))] px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--accent-strong)]">
+                        <span className="inline-flex items-center gap-0.5 rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[color:color-mix(in_oklch,var(--accent)_10%,var(--surface))] px-1.5 py-0.5 text-[0.72rem] font-semibold uppercase tracking-wide text-[var(--accent-strong)]">
                           <VideoGlyph className="h-3 w-3" />
                           Video attached
                         </span>
@@ -948,7 +1004,7 @@ export default function Home() {
                                   key={field.label}
                                   className="rounded-lg border border-[var(--line)] bg-[color-mix(in_oklch,var(--surface)_98%,var(--accent)_1%)] p-3"
                                 >
-                                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+                                  <p className="text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-[var(--ink-soft)]">
                                     {field.label}
                                   </p>
                                   <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-[var(--foreground)]">
@@ -1163,6 +1219,7 @@ export default function Home() {
                       </summary>
                       <div className="border-t border-[var(--line)] px-4 pb-4 pt-3 sm:px-5">
                         <video
+                          aria-label={selected.video_original_filename ? `Attached video ${selected.video_original_filename}` : "Attached referral video"}
                           className="aspect-video max-h-[min(70vh,520px)] w-full rounded-lg bg-black object-contain"
                           controls
                           playsInline
@@ -1206,6 +1263,6 @@ export default function Home() {
           </div>
         </section>
       </div>
-    </div>
+    </main>
   );
 }
