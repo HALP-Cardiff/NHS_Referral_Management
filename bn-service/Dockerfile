@@ -8,7 +8,7 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 
 # Install the remaining pgmpy deps needed for exact BN inference.
 # Skip pyro, statsmodels, scikit-learn (unused by VariableElimination).
-RUN pip install --no-cache-dir numpy scipy networkx pandas tqdm joblib opt-einsum
+RUN pip install --no-cache-dir numpy scipy networkx pandas tqdm joblib opt-einsum scikit-learn
 
 # Install pgmpy itself without pulling its full dependency tree again
 RUN pip install --no-cache-dir --no-deps pgmpy>=0.1.25
