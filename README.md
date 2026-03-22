@@ -127,7 +127,7 @@ North & South Wales Referrals
 - 4-tier DAG: Tier 0 (17 patient observables) → Tier 1 (8 environment observables) → Tier 2 (4 hidden/inferred nodes) → Tier 3 (5 output nodes)
 - BN infers unstated information (e.g. fall risk) from different factors provided (e.g. diagnosis, age)
 - Conditional Probability Tables (CPTs) encoding clinical knowledge
-- ALEC-to-BN field mapper that converts free-text PDF values to discrete BN states (24 individual mapper functions handling unit conversion, keyword matching, and threshold classification)
+- ALAC-to-BN field mapper that converts free-text PDF values to discrete BN states (24 individual mapper functions handling unit conversion, keyword matching, and threshold classification)
 - Two-pass inference: probabilistic inference followed by absolute rule enforcement (13 rules including seizure/powered restriction, bariatric override, door width/turning circle checks, posture/harness requirements, referral accumulation)
 - Risk flagging with configurable thresholds
 - API key authentication
@@ -261,11 +261,11 @@ docker run -p 10000:10000 alac-bn
 │       ├── services/        # PDF parser + Gemini AI integration
 │       ├── routes/          # REST API endpoints
 │       ├── knowledge/       # Wheelchair BN knowledge base
-│       └── schemas/         # ALEC form field definitions
+│       └── schemas/         # ALAC form field definitions
 ├── bn-service/              # FastAPI Bayesian Network inference service
 │   └── app/
-│       ├── routers/         # /api/bn/classify, /api/bn/classify-from-alec
-│       ├── mapping/         # ALEC field → BN evidence mapper
+│       ├── routers/         # /api/bn/classify, /api/bn/classify-from-alac
+│       ├── mapping/         # ALAC field → BN evidence mapper
 │       └── schemas/         # Pydantic request/response models
 ├── python/
 │   └── alac-wheelchair-bn/  # Core BN package (pgmpy)
