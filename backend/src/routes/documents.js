@@ -6,11 +6,13 @@ const { parseAlecPdf } = require("../services/pdfParser");
 const {
   insertDocument,
   setDocumentVideo,
+  setDocumentAnalysis,
   getDocumentById,
   getVideoStoragePath,
   listDocuments,
   deleteDocumentById,
 } = require("../db");
+const { analyseReferral } = require("../services/geminiService");
 
 const PDF_MAX_BYTES = 20 * 1024 * 1024;
 const VIDEO_MAX_BYTES = 200 * 1024 * 1024;
@@ -162,6 +164,30 @@ router.post(
 router.get("/", (req, res) => {
   const limit = req.query.limit;
   res.json({ documents: listDocuments(limit) });
+});
+
+router.post("/:id/analyse", async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: "Invalid document id" });
+    }
+    const doc = getDocumentById(id);
+    if (!doc) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+    if (!doc.parsed_json?.fields || Object.keys(doc.parsed_json.fields).length === 0) {
+      return res.status(400).json({ error: "No parsed fields available for analysis" });
+    }
+
+    const analysis = await analyseReferral(doc.parsed_json.fields);
+    setDocumentAnalysis(id, analysis);
+
+    const updated = getDocumentById(id);
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
 });
 
 router.get("/:id/video", (req, res) => {

@@ -35,16 +35,16 @@ if (!documentColumnNames.has("video_mime_type")) {
 if (!documentColumnNames.has("video_storage_path")) {
   db.exec(`ALTER TABLE documents ADD COLUMN video_storage_path TEXT`);
 }
+if (!documentColumnNames.has("analysis_json")) {
+  db.exec(`ALTER TABLE documents ADD COLUMN analysis_json TEXT`);
+}
+
+function tryParseJson(str) {
+  if (!str) return null;
+  try { return JSON.parse(str); } catch { return null; }
+}
 
 function mapRow(row, { fullText = true } = {}) {
-  let parsed_json = null;
-  if (row.parsed_json) {
-    try {
-      parsed_json = JSON.parse(row.parsed_json);
-    } catch {
-      parsed_json = null;
-    }
-  }
   const has_video = Boolean(row.video_storage_path);
   return {
     id: row.id,
@@ -53,7 +53,8 @@ function mapRow(row, { fullText = true } = {}) {
     page_count: row.page_count,
     raw_text: fullText ? row.raw_text : undefined,
     text_excerpt: row.text_excerpt ?? undefined,
-    parsed_json,
+    parsed_json: tryParseJson(row.parsed_json),
+    analysis_json: tryParseJson(row.analysis_json),
     uploaded_at: row.uploaded_at,
     has_video,
     video_original_filename: row.video_original_filename ?? null,
@@ -133,6 +134,7 @@ function listDocuments(limit = 50) {
       uploaded_at,
       substr(COALESCE(raw_text, ''), 1, 320) AS text_excerpt,
       parsed_json,
+      analysis_json,
       video_storage_path,
       video_original_filename,
       video_mime_type
@@ -162,10 +164,18 @@ function deleteDocumentById(id) {
   return info.changes > 0;
 }
 
+function setDocumentAnalysis(id, analysisObj) {
+  db.prepare(`UPDATE documents SET analysis_json = @json WHERE id = @id`).run({
+    id: Number(id),
+    json: JSON.stringify(analysisObj),
+  });
+}
+
 module.exports = {
   db,
   insertDocument,
   setDocumentVideo,
+  setDocumentAnalysis,
   getDocumentById,
   getVideoStoragePath,
   listDocuments,

@@ -24,6 +24,13 @@ type MissingField = {
   section: string;
 };
 
+type AnalysisResult = {
+  pathway: string;
+  references: string;
+  clinicalReasoning: string;
+  raw: string;
+};
+
 type ParsedJson = {
   numpages: number;
   meta: {
@@ -43,6 +50,7 @@ type DocSummary = {
   uploaded_at: string;
   text_excerpt?: string;
   parsed_json?: ParsedJson | null;
+  analysis_json?: AnalysisResult | null;
   has_video?: boolean;
   video_original_filename?: string | null;
   video_mime_type?: string | null;
@@ -109,6 +117,79 @@ function displaySummaryText(doc: DocDetail): string {
   return "No extractable body text was found for this PDF.";
 }
 
+function AnalysisIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M12 2a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1Zm4.22 2.22a1 1 0 0 1 1.41 0l1.42 1.41a1 1 0 1 1-1.42 1.42L16.22 5.63a1 1 0 0 1 0-1.41ZM20 11a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2h-2Zm-2.93 5.36a1 1 0 0 1 1.41 0l1.42 1.41a1 1 0 1 1-1.42 1.42l-1.41-1.42a1 1 0 0 1 0-1.41ZM12 18a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1Zm-5.64-1.22a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 1 1-1.42-1.42l1.42-1.41a1 1 0 0 1 1.41 0ZM4 11a1 1 0 1 0 0 2H2a1 1 0 1 0 0-2h2Zm.93-4.36a1 1 0 0 1 0-1.41L6.34 3.8a1 1 0 1 1 1.42 1.42L6.34 6.64a1 1 0 0 1-1.41 0ZM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" />
+    </svg>
+  );
+}
+
+function renderMarkdownBlock(md: string) {
+  const lines = md.split("\n");
+  const elements: React.ReactNode[] = [];
+  let listItems: string[] = [];
+
+  function flushList() {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={`ul-${elements.length}`} className="ml-4 list-disc space-y-1">
+          {listItems.map((item, i) => (
+            <li key={i} className="text-sm leading-relaxed text-[var(--foreground)]">
+              {renderInline(item)}
+            </li>
+          ))}
+        </ul>
+      );
+      listItems = [];
+    }
+  }
+
+  function renderInline(text: string): React.ReactNode {
+    const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return <code key={i} className="rounded bg-[var(--surface-2)] px-1 py-0.5 text-xs font-mono">{part.slice(1, -1)}</code>;
+      }
+      return part;
+    });
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || /^\d+\.\s/.test(trimmed)) {
+      const content = trimmed.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "");
+      listItems.push(content);
+      continue;
+    }
+
+    flushList();
+
+    if (trimmed.startsWith("### ")) {
+      elements.push(
+        <h5 key={elements.length} className="mt-3 mb-1.5 text-sm font-semibold text-[var(--foreground)]">
+          {trimmed.slice(4)}
+        </h5>
+      );
+    } else if (trimmed.length === 0) {
+      elements.push(<div key={elements.length} className="h-2" />);
+    } else {
+      elements.push(
+        <p key={elements.length} className="text-sm leading-relaxed text-[var(--foreground)]">
+          {renderInline(trimmed)}
+        </p>
+      );
+    }
+  }
+
+  flushList();
+  return <>{elements}</>;
+}
+
 const pickerButtonClass =
   "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-[color:color-mix(in_oklch,var(--accent)_20%,var(--line))] bg-[var(--surface)] px-6 py-2.5 text-[1.05rem] font-semibold text-[var(--accent-strong)] shadow-[0_8px_22px_color-mix(in_oklch,var(--accent)_10%,transparent)] transition duration-200 ease-out hover:border-[var(--accent)] hover:shadow-[0_10px_24px_color-mix(in_oklch,var(--accent)_14%,transparent)] disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -161,6 +242,8 @@ export default function Home() {
   const [isDragActive, setIsDragActive] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [analysing, setAnalysing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -333,6 +416,30 @@ export default function Home() {
       setError(e instanceof Error ? e.message : "Could not delete document");
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleAnalyse(docId: number) {
+    setAnalysing(true);
+    setAnalysisError(null);
+    try {
+      const r = await fetch(apiUrl(`/api/documents/${docId}/analyse`), {
+        method: "POST",
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(
+          typeof body.error === "string" ? body.error : `HTTP ${r.status}`
+        );
+      }
+      const doc = body as DocDetail;
+      setSelected(doc);
+    } catch (e) {
+      setAnalysisError(
+        e instanceof Error ? e.message : "Analysis failed"
+      );
+    } finally {
+      setAnalysing(false);
     }
   }
 
@@ -856,6 +963,90 @@ export default function Home() {
                           {selected.parsed_json?.meta.subject ?? "Not detected"}
                         </p>
                       </div>
+                    </div>
+                  )}
+
+                  {/* ── AI Analysis ──────────────────────────── */}
+                  {showFieldGrid && (
+                    <div className="shrink-0">
+                      {analysisError && (
+                        <div className="mb-3 rounded-xl border border-[color:color-mix(in_oklch,var(--danger)_30%,var(--line))] bg-[color:color-mix(in_oklch,var(--danger)_10%,var(--surface))] px-4 py-3 text-sm text-[color:color-mix(in_oklch,var(--danger)_68%,var(--foreground))]" role="alert">
+                          {analysisError}
+                        </div>
+                      )}
+
+                      {selected.analysis_json ? (
+                        <div className="flex flex-col gap-4">
+                          <div className="flex items-center gap-3">
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[color:color-mix(in_oklch,oklch(0.65_0.2_280)_14%,var(--surface))] text-[oklch(0.55_0.2_280)]">
+                              <AnalysisIcon className="h-4 w-4" />
+                            </span>
+                            <h4 className="font-display text-lg font-semibold tracking-tight text-[var(--foreground)]">
+                              AI Triage Analysis
+                            </h4>
+                            <button
+                              type="button"
+                              disabled={analysing}
+                              onClick={() => handleAnalyse(selected.id)}
+                              className="ml-auto cursor-pointer rounded-lg border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-strong)] transition hover:bg-[color:color-mix(in_oklch,var(--accent)_8%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {analysing ? "Re-analysing..." : "Re-analyse"}
+                            </button>
+                          </div>
+
+                          {/* Pathway */}
+                          <div className="rounded-xl border border-[color:color-mix(in_oklch,oklch(0.7_0.2_145)_25%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.7_0.2_145)_6%,var(--surface))] p-4">
+                            <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-[oklch(0.45_0.15_145)]">
+                              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor"><path fillRule="evenodd" d="M12.577 4.878a.75.75 0 0 1 .919-.53l4.78 1.281a.75.75 0 0 1 .531.919l-1.281 4.78a.75.75 0 0 1-1.449-.387l.81-3.022a19.407 19.407 0 0 0-5.594 5.203.75.75 0 0 1-1.139.093L7 10.06l-4.72 4.72a.75.75 0 0 1-1.06-1.06l5.25-5.25a.75.75 0 0 1 1.06 0l3.078 3.078a20.923 20.923 0 0 1 5.545-4.93l-3.042.815a.75.75 0 0 1-.534-.455Z" clipRule="evenodd" /></svg>
+                              Pathway
+                            </h4>
+                            {renderMarkdownBlock(selected.analysis_json.pathway)}
+                          </div>
+
+                          {/* References */}
+                          <details className="group rounded-xl border border-[color:color-mix(in_oklch,oklch(0.65_0.18_250)_25%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.65_0.18_250)_6%,var(--surface))] [&_summary::-webkit-details-marker]:hidden">
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                              <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-[oklch(0.45_0.15_250)]">
+                                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor"><path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 0 0 2 4.25v2.5A2.25 2.25 0 0 0 4.25 9h2.5A2.25 2.25 0 0 0 9 6.75v-2.5A2.25 2.25 0 0 0 6.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 2 13.25v2.5A2.25 2.25 0 0 0 4.25 18h2.5A2.25 2.25 0 0 0 9 15.75v-2.5A2.25 2.25 0 0 0 6.75 11h-2.5Zm9-9A2.25 2.25 0 0 0 11 4.25v2.5A2.25 2.25 0 0 0 13.25 9h2.5A2.25 2.25 0 0 0 18 6.75v-2.5A2.25 2.25 0 0 0 15.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 11 13.25v2.5A2.25 2.25 0 0 0 13.25 18h2.5A2.25 2.25 0 0 0 18 15.75v-2.5A2.25 2.25 0 0 0 15.75 11h-2.5Z" /></svg>
+                                References
+                              </span>
+                              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[var(--ink-soft)] transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                            </summary>
+                            <div className="border-t border-[color:color-mix(in_oklch,oklch(0.65_0.18_250)_15%,var(--line))] px-4 pb-4 pt-3">
+                              {renderMarkdownBlock(selected.analysis_json.references)}
+                            </div>
+                          </details>
+
+                          {/* Clinical Reasoning */}
+                          <details className="group rounded-xl border border-[color:color-mix(in_oklch,oklch(0.65_0.18_40)_25%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.65_0.18_40)_6%,var(--surface))] [&_summary::-webkit-details-marker]:hidden">
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                              <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-[oklch(0.45_0.15_40)]">
+                                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor"><path d="M10 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 1ZM5.05 3.05a.75.75 0 0 1 1.06 0l1.062 1.06a.75.75 0 1 1-1.06 1.06L5.05 4.11a.75.75 0 0 1 0-1.06ZM14.95 3.05a.75.75 0 0 1 0 1.06l-1.06 1.062a.75.75 0 0 1-1.062-1.06l1.06-1.062a.75.75 0 0 1 1.062 0ZM3 8a7 7 0 1 1 11.95 4.95c-.592.591-.98 1.166-1.138 1.538A1.5 1.5 0 0 1 12.44 15.5H7.56a1.5 1.5 0 0 1-1.372-.912c-.158-.372-.546-.947-1.138-1.538A6.97 6.97 0 0 1 3 8Zm4.56 8a.5.5 0 0 0 0 1h4.88a.5.5 0 0 0 0-1H7.56ZM8.5 18a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3Z" /></svg>
+                                Clinical Reasoning
+                              </span>
+                              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[var(--ink-soft)] transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                            </summary>
+                            <div className="border-t border-[color:color-mix(in_oklch,oklch(0.65_0.18_40)_15%,var(--line))] px-4 pb-4 pt-3">
+                              {renderMarkdownBlock(selected.analysis_json.clinicalReasoning)}
+                            </div>
+                          </details>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={analysing}
+                          onClick={() => handleAnalyse(selected.id)}
+                          className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl border-2 border-dashed border-[color:color-mix(in_oklch,oklch(0.65_0.2_280)_30%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.65_0.2_280)_6%,var(--surface))] px-5 py-6 text-center transition duration-200 hover:border-[oklch(0.55_0.2_280)] hover:bg-[color:color-mix(in_oklch,oklch(0.65_0.2_280)_10%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <AnalysisIcon className="h-6 w-6 text-[oklch(0.55_0.2_280)]" />
+                          <span className="text-base font-semibold text-[oklch(0.45_0.18_280)]">
+                            {analysing ? "Running AI Analysis..." : "Run AI Triage Analysis"}
+                          </span>
+                          {analysing && (
+                            <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[oklch(0.55_0.2_280)] border-t-transparent" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   )}
 
