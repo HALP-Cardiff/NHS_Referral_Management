@@ -63,7 +63,11 @@ type UploadErrorBody = {
   missing_fields?: MissingField[];
   partial_result?: {
     fields: Record<string, FieldEntry>;
-    meta: { title: string | null; author: string | null; subject: string | null };
+    meta: {
+      title: string | null;
+      author: string | null;
+      subject: string | null;
+    };
     numpages: number;
   };
 };
@@ -100,8 +104,7 @@ function formatUploadedAt(value: string) {
 function hasFields(doc: DocDetail | null): boolean {
   if (!doc) return false;
   return (
-    !!doc.parsed_json?.fields &&
-    Object.keys(doc.parsed_json.fields).length > 0
+    !!doc.parsed_json?.fields && Object.keys(doc.parsed_json.fields).length > 0
   );
 }
 
@@ -119,7 +122,12 @@ function displaySummaryText(doc: DocDetail): string {
 
 function AnalysisIcon({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <path d="M12 2a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1Zm4.22 2.22a1 1 0 0 1 1.41 0l1.42 1.41a1 1 0 1 1-1.42 1.42L16.22 5.63a1 1 0 0 1 0-1.41ZM20 11a1 1 0 1 0 0 2h2a1 1 0 1 0 0-2h-2Zm-2.93 5.36a1 1 0 0 1 1.41 0l1.42 1.41a1 1 0 1 1-1.42 1.42l-1.41-1.42a1 1 0 0 1 0-1.41ZM12 18a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1Zm-5.64-1.22a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 1 1-1.42-1.42l1.42-1.41a1 1 0 0 1 1.41 0ZM4 11a1 1 0 1 0 0 2H2a1 1 0 1 0 0-2h2Zm.93-4.36a1 1 0 0 1 0-1.41L6.34 3.8a1 1 0 1 1 1.42 1.42L6.34 6.64a1 1 0 0 1-1.41 0ZM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" />
     </svg>
   );
@@ -135,11 +143,14 @@ function renderMarkdownBlock(md: string) {
       elements.push(
         <ul key={`ul-${elements.length}`} className="ml-4 list-disc space-y-1">
           {listItems.map((item, i) => (
-            <li key={i} className="text-sm leading-relaxed text-[var(--foreground)]">
+            <li
+              key={i}
+              className="text-sm leading-relaxed text-[var(--foreground)]"
+            >
               {renderInline(item)}
             </li>
           ))}
-        </ul>
+        </ul>,
       );
       listItems = [];
     }
@@ -149,10 +160,21 @@ function renderMarkdownBlock(md: string) {
     const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
     return parts.map((part, i) => {
       if (part.startsWith("**") && part.endsWith("**")) {
-        return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+        return (
+          <strong key={i} className="font-semibold">
+            {part.slice(2, -2)}
+          </strong>
+        );
       }
       if (part.startsWith("`") && part.endsWith("`")) {
-        return <code key={i} className="rounded bg-[var(--surface-2)] px-1 py-0.5 text-xs font-mono">{part.slice(1, -1)}</code>;
+        return (
+          <code
+            key={i}
+            className="rounded bg-[var(--surface-2)] px-1 py-0.5 text-xs font-mono"
+          >
+            {part.slice(1, -1)}
+          </code>
+        );
       }
       return part;
     });
@@ -161,7 +183,11 @@ function renderMarkdownBlock(md: string) {
   for (const line of lines) {
     const trimmed = line.trimStart();
 
-    if (trimmed.startsWith("- ") || trimmed.startsWith("* ") || /^\d+\.\s/.test(trimmed)) {
+    if (
+      trimmed.startsWith("- ") ||
+      trimmed.startsWith("* ") ||
+      /^\d+\.\s/.test(trimmed)
+    ) {
       const content = trimmed.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "");
       listItems.push(content);
       continue;
@@ -171,17 +197,23 @@ function renderMarkdownBlock(md: string) {
 
     if (trimmed.startsWith("### ")) {
       elements.push(
-        <h5 key={elements.length} className="mt-3 mb-1.5 text-sm font-semibold text-[var(--foreground)]">
+        <h5
+          key={elements.length}
+          className="mt-3 mb-1.5 text-sm font-semibold text-[var(--foreground)]"
+        >
           {trimmed.slice(4)}
-        </h5>
+        </h5>,
       );
     } else if (trimmed.length === 0) {
       elements.push(<div key={elements.length} className="h-2" />);
     } else {
       elements.push(
-        <p key={elements.length} className="text-sm leading-relaxed text-[var(--foreground)]">
+        <p
+          key={elements.length}
+          className="text-sm leading-relaxed text-[var(--foreground)]"
+        >
           {renderInline(trimmed)}
-        </p>
+        </p>,
       );
     }
   }
@@ -325,9 +357,7 @@ export default function Home() {
       const data = (await r.json()) as { documents: DocSummary[] };
       setDocs(data.documents);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Could not load document list"
-      );
+      setError(e instanceof Error ? e.message : "Could not load document list");
     } finally {
       setListLoading(false);
     }
@@ -349,7 +379,7 @@ export default function Home() {
       setSelected(doc);
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Could not load document details"
+        e instanceof Error ? e.message : "Could not load document details",
       );
     }
   }
@@ -374,7 +404,7 @@ export default function Home() {
           setUploadError(body as UploadErrorBody);
         } else {
           setError(
-            typeof body.error === "string" ? body.error : `HTTP ${r.status}`
+            typeof body.error === "string" ? body.error : `HTTP ${r.status}`,
           );
         }
         return;
@@ -395,7 +425,7 @@ export default function Home() {
 
   async function handleDelete(doc: DocSummary) {
     const confirmed = window.confirm(
-      `Delete ${doc.original_filename}? This cannot be undone.`
+      `Delete ${doc.original_filename}? This cannot be undone.`,
     );
     if (!confirmed) return;
     setDeletingId(doc.id);
@@ -407,7 +437,7 @@ export default function Home() {
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
         throw new Error(
-          typeof body.error === "string" ? body.error : `HTTP ${r.status}`
+          typeof body.error === "string" ? body.error : `HTTP ${r.status}`,
         );
       }
       setDocs((prev) => prev.filter((d) => d.id !== doc.id));
@@ -429,15 +459,13 @@ export default function Home() {
       const body = await r.json().catch(() => ({}));
       if (!r.ok) {
         throw new Error(
-          typeof body.error === "string" ? body.error : `HTTP ${r.status}`
+          typeof body.error === "string" ? body.error : `HTTP ${r.status}`,
         );
       }
       const doc = body as DocDetail;
       setSelected(doc);
     } catch (e) {
-      setAnalysisError(
-        e instanceof Error ? e.message : "Analysis failed"
-      );
+      setAnalysisError(e instanceof Error ? e.message : "Analysis failed");
     } finally {
       setAnalysing(false);
     }
@@ -493,7 +521,7 @@ export default function Home() {
             </p>
             {SECTION_ORDER.map((sectionKey) => {
               const missing = uploadError.missing_fields!.filter(
-                (f) => f.section === sectionKey
+                (f) => f.section === sectionKey,
               );
               if (!missing.length) return null;
               return (
@@ -537,7 +565,7 @@ export default function Home() {
                             {f.value}
                           </p>
                         </div>
-                      )
+                      ),
                     )}
                   </div>
                 </details>
@@ -598,14 +626,14 @@ export default function Home() {
                   } else if (isVideo(dropped)) {
                     if (!file) {
                       setError(
-                        "Select or drop a PDF before adding a video (MP4, WebM, or MOV)."
+                        "Select or drop a PDF before adding a video (MP4, WebM, or MOV).",
                       );
                       return;
                     }
                     selectVideo(dropped);
                   } else {
                     setError(
-                      "Please drop a PDF referral file, or a supported video after a PDF is selected."
+                      "Please drop a PDF referral file, or a supported video after a PDF is selected.",
                     );
                   }
                 }}
@@ -787,7 +815,7 @@ export default function Home() {
             <div className="flex max-h-[min(42vh,22rem)] min-h-0 flex-col border-b border-[var(--line)] bg-[var(--surface-2)] p-3 md:max-h-none md:border-b-0 md:border-r">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-display text-lg font-semibold tracking-tight text-[var(--foreground)]">
-                  Queue
+                  Previously Analysed Referrals
                 </h2>
                 <span className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-2.5 py-0.5 text-xs font-semibold text-[var(--ink-soft)]">
                   {docs.length}
@@ -834,8 +862,7 @@ export default function Home() {
                                 </span>
                                 <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--ink-soft)]">
                                   <span>
-                                    #{d.id} &middot; {d.page_count ?? "?"}{" "}
-                                    pages
+                                    #{d.id} &middot; {d.page_count ?? "?"} pages
                                   </span>
                                   {d.has_video ? (
                                     <span className="inline-flex items-center gap-0.5 rounded-md border border-[color:color-mix(in_oklch,var(--accent)_28%,var(--line))] bg-[color:color-mix(in_oklch,var(--accent)_10%,var(--surface))] px-1.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--accent-strong)]">
@@ -855,9 +882,7 @@ export default function Home() {
                                 className="shrink-0 cursor-pointer rounded-md border border-[color:color-mix(in_oklch,var(--danger)_30%,var(--line))] bg-[color:color-mix(in_oklch,var(--danger)_8%,var(--surface))] px-2 py-1 text-xs font-semibold text-[color:color-mix(in_oklch,var(--danger)_70%,var(--foreground))] transition hover:bg-[color:color-mix(in_oklch,var(--danger)_12%,var(--surface))] disabled:cursor-not-allowed disabled:opacity-50"
                                 aria-label={`Delete ${d.original_filename}`}
                               >
-                                {deletingId === d.id
-                                  ? "Deleting..."
-                                  : "Remove"}
+                                {deletingId === d.id ? "Deleting..." : "Remove"}
                               </button>
                             </div>
                           </article>
@@ -970,7 +995,10 @@ export default function Home() {
                   {showFieldGrid && (
                     <div className="shrink-0">
                       {analysisError && (
-                        <div className="mb-3 rounded-xl border border-[color:color-mix(in_oklch,var(--danger)_30%,var(--line))] bg-[color:color-mix(in_oklch,var(--danger)_10%,var(--surface))] px-4 py-3 text-sm text-[color:color-mix(in_oklch,var(--danger)_68%,var(--foreground))]" role="alert">
+                        <div
+                          className="mb-3 rounded-xl border border-[color:color-mix(in_oklch,var(--danger)_30%,var(--line))] bg-[color:color-mix(in_oklch,var(--danger)_10%,var(--surface))] px-4 py-3 text-sm text-[color:color-mix(in_oklch,var(--danger)_68%,var(--foreground))]"
+                          role="alert"
+                        >
                           {analysisError}
                         </div>
                       )}
@@ -982,7 +1010,7 @@ export default function Home() {
                               <AnalysisIcon className="h-4 w-4" />
                             </span>
                             <h4 className="font-display text-lg font-semibold tracking-tight text-[var(--foreground)]">
-                              AI Triage Analysis
+                              Clinical Decision Support
                             </h4>
                             <button
                               type="button"
@@ -997,23 +1025,57 @@ export default function Home() {
                           {/* Pathway */}
                           <div className="rounded-xl border border-[color:color-mix(in_oklch,oklch(0.7_0.2_145)_25%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.7_0.2_145)_6%,var(--surface))] p-4">
                             <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-[oklch(0.45_0.15_145)]">
-                              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor"><path fillRule="evenodd" d="M12.577 4.878a.75.75 0 0 1 .919-.53l4.78 1.281a.75.75 0 0 1 .531.919l-1.281 4.78a.75.75 0 0 1-1.449-.387l.81-3.022a19.407 19.407 0 0 0-5.594 5.203.75.75 0 0 1-1.139.093L7 10.06l-4.72 4.72a.75.75 0 0 1-1.06-1.06l5.25-5.25a.75.75 0 0 1 1.06 0l3.078 3.078a20.923 20.923 0 0 1 5.545-4.93l-3.042.815a.75.75 0 0 1-.534-.455Z" clipRule="evenodd" /></svg>
-                              Pathway
+                              <svg
+                                viewBox="0 0 20 20"
+                                className="h-4 w-4"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M12.577 4.878a.75.75 0 0 1 .919-.53l4.78 1.281a.75.75 0 0 1 .531.919l-1.281 4.78a.75.75 0 0 1-1.449-.387l.81-3.022a19.407 19.407 0 0 0-5.594 5.203.75.75 0 0 1-1.139.093L7 10.06l-4.72 4.72a.75.75 0 0 1-1.06-1.06l5.25-5.25a.75.75 0 0 1 1.06 0l3.078 3.078a20.923 20.923 0 0 1 5.545-4.93l-3.042.815a.75.75 0 0 1-.534-.455Z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              Recommended Pathway
                             </h4>
-                            {renderMarkdownBlock(selected.analysis_json.pathway)}
+                            {renderMarkdownBlock(
+                              selected.analysis_json.pathway,
+                            )}
                           </div>
 
                           {/* References */}
                           <details className="group rounded-xl border border-[color:color-mix(in_oklch,oklch(0.65_0.18_250)_25%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.65_0.18_250)_6%,var(--surface))] [&_summary::-webkit-details-marker]:hidden">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                               <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-[oklch(0.45_0.15_250)]">
-                                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor"><path fillRule="evenodd" d="M4.25 2A2.25 2.25 0 0 0 2 4.25v2.5A2.25 2.25 0 0 0 4.25 9h2.5A2.25 2.25 0 0 0 9 6.75v-2.5A2.25 2.25 0 0 0 6.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 2 13.25v2.5A2.25 2.25 0 0 0 4.25 18h2.5A2.25 2.25 0 0 0 9 15.75v-2.5A2.25 2.25 0 0 0 6.75 11h-2.5Zm9-9A2.25 2.25 0 0 0 11 4.25v2.5A2.25 2.25 0 0 0 13.25 9h2.5A2.25 2.25 0 0 0 18 6.75v-2.5A2.25 2.25 0 0 0 15.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 11 13.25v2.5A2.25 2.25 0 0 0 13.25 18h2.5A2.25 2.25 0 0 0 18 15.75v-2.5A2.25 2.25 0 0 0 15.75 11h-2.5Z" /></svg>
-                                References
+                                <svg
+                                  viewBox="0 0 20 20"
+                                  className="h-4 w-4"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M4.25 2A2.25 2.25 0 0 0 2 4.25v2.5A2.25 2.25 0 0 0 4.25 9h2.5A2.25 2.25 0 0 0 9 6.75v-2.5A2.25 2.25 0 0 0 6.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 2 13.25v2.5A2.25 2.25 0 0 0 4.25 18h2.5A2.25 2.25 0 0 0 9 15.75v-2.5A2.25 2.25 0 0 0 6.75 11h-2.5Zm9-9A2.25 2.25 0 0 0 11 4.25v2.5A2.25 2.25 0 0 0 13.25 9h2.5A2.25 2.25 0 0 0 18 6.75v-2.5A2.25 2.25 0 0 0 15.75 2h-2.5Zm0 9A2.25 2.25 0 0 0 11 13.25v2.5A2.25 2.25 0 0 0 13.25 18h2.5A2.25 2.25 0 0 0 18 15.75v-2.5A2.25 2.25 0 0 0 15.75 11h-2.5Z"
+                                  />
+                                </svg>
+                                Rules Fired
                               </span>
-                              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[var(--ink-soft)] transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-5 w-5 shrink-0 text-[var(--ink-soft)] transition-transform duration-200 group-open:rotate-180"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
                             </summary>
                             <div className="border-t border-[color:color-mix(in_oklch,oklch(0.65_0.18_250)_15%,var(--line))] px-4 pb-4 pt-3">
-                              {renderMarkdownBlock(selected.analysis_json.references)}
+                              {renderMarkdownBlock(
+                                selected.analysis_json.references,
+                              )}
                             </div>
                           </details>
 
@@ -1021,13 +1083,32 @@ export default function Home() {
                           <details className="group rounded-xl border border-[color:color-mix(in_oklch,oklch(0.65_0.18_40)_25%,var(--line))] bg-[color:color-mix(in_oklch,oklch(0.65_0.18_40)_6%,var(--surface))] [&_summary::-webkit-details-marker]:hidden">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                               <span className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.08em] text-[oklch(0.45_0.15_40)]">
-                                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor"><path d="M10 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 1ZM5.05 3.05a.75.75 0 0 1 1.06 0l1.062 1.06a.75.75 0 1 1-1.06 1.06L5.05 4.11a.75.75 0 0 1 0-1.06ZM14.95 3.05a.75.75 0 0 1 0 1.06l-1.06 1.062a.75.75 0 0 1-1.062-1.06l1.06-1.062a.75.75 0 0 1 1.062 0ZM3 8a7 7 0 1 1 11.95 4.95c-.592.591-.98 1.166-1.138 1.538A1.5 1.5 0 0 1 12.44 15.5H7.56a1.5 1.5 0 0 1-1.372-.912c-.158-.372-.546-.947-1.138-1.538A6.97 6.97 0 0 1 3 8Zm4.56 8a.5.5 0 0 0 0 1h4.88a.5.5 0 0 0 0-1H7.56ZM8.5 18a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3Z" /></svg>
-                                Clinical Reasoning
+                                <svg
+                                  viewBox="0 0 20 20"
+                                  className="h-4 w-4"
+                                  fill="currentColor"
+                                >
+                                  <path d="M10 1a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 1ZM5.05 3.05a.75.75 0 0 1 1.06 0l1.062 1.06a.75.75 0 1 1-1.06 1.06L5.05 4.11a.75.75 0 0 1 0-1.06ZM14.95 3.05a.75.75 0 0 1 0 1.06l-1.06 1.062a.75.75 0 0 1-1.062-1.06l1.06-1.062a.75.75 0 0 1 1.062 0ZM3 8a7 7 0 1 1 11.95 4.95c-.592.591-.98 1.166-1.138 1.538A1.5 1.5 0 0 1 12.44 15.5H7.56a1.5 1.5 0 0 1-1.372-.912c-.158-.372-.546-.947-1.138-1.538A6.97 6.97 0 0 1 3 8Zm4.56 8a.5.5 0 0 0 0 1h4.88a.5.5 0 0 0 0-1H7.56ZM8.5 18a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1h-3Z" />
+                                </svg>
+                                Understanding the Recommendation
                               </span>
-                              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-[var(--ink-soft)] transition-transform duration-200 group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                              <svg
+                                viewBox="0 0 24 24"
+                                className="h-5 w-5 shrink-0 text-[var(--ink-soft)] transition-transform duration-200 group-open:rotate-180"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden="true"
+                              >
+                                <path d="m6 9 6 6 6-6" />
+                              </svg>
                             </summary>
                             <div className="border-t border-[color:color-mix(in_oklch,oklch(0.65_0.18_40)_15%,var(--line))] px-4 pb-4 pt-3">
-                              {renderMarkdownBlock(selected.analysis_json.clinicalReasoning)}
+                              {renderMarkdownBlock(
+                                selected.analysis_json.clinicalReasoning,
+                              )}
                             </div>
                           </details>
                         </div>
@@ -1040,7 +1121,9 @@ export default function Home() {
                         >
                           <AnalysisIcon className="h-6 w-6 text-[oklch(0.55_0.2_280)]" />
                           <span className="text-base font-semibold text-[oklch(0.45_0.18_280)]">
-                            {analysing ? "Running AI Analysis..." : "Run AI Triage Analysis"}
+                            {analysing
+                              ? "Running AI Analysis..."
+                              : "Run AI Triage Analysis"}
                           </span>
                           {analysing && (
                             <span className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[oklch(0.55_0.2_280)] border-t-transparent" />
@@ -1084,9 +1167,7 @@ export default function Home() {
                           controls
                           playsInline
                           preload="metadata"
-                          src={apiUrl(
-                            `/api/documents/${selected.id}/video`
-                          )}
+                          src={apiUrl(`/api/documents/${selected.id}/video`)}
                         >
                           Your browser does not support embedded video.
                         </video>

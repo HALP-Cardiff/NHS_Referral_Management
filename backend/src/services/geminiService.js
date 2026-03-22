@@ -2,6 +2,9 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { buildKnowledgeContext } = require("../knowledge/wheelchairKnowledge");
 
 const MODEL_NAME = "gemma-3-27b-it";
+const BN_SERVICE_URL = process.env.BN_SERVICE_URL || "http://127.0.0.1:10000";
+const BN_API_KEY = process.env.BN_API_KEY || "";
+const BN_TIMEOUT_MS = parseInt(process.env.BN_TIMEOUT_MS || "15000", 10);
 
 function getClient() {
   const key = process.env.GEMINI_API_KEY;
@@ -42,7 +45,121 @@ function formatPatientData(parsedFields) {
   return lines.join("\n");
 }
 
-const SYSTEM_PROMPT = `You are an expert NHS wheelchair referral triage assistant. You analyse patient referral data using a structured clinical knowledge base (provided below) to produce evidence-based recommendations.
+// ── BN service integration ─────────────────────────────────────────────────
+
+async function fetchBnClassification(parsedFields) {
+  const url = `${BN_SERVICE_URL}/api/bn/classify-from-alec`;
+  const headers = { "Content-Type": "application/json" };
+  if (BN_API_KEY) headers["x-api-key"] = BN_API_KEY;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), BN_TIMEOUT_MS);
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ fields: parsedFields }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`BN service returned ${res.status}: ${body}`);
+    }
+    return await res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function formatBnResults(bn) {
+  const lines = ["=== BAYESIAN NETWORK INFERENCE RESULTS ===\n"];
+  lines.push(
+    "The following recommendations were computed by exact probabilistic inference",
+    "over a validated clinical Bayesian Network. Use these as your primary basis",
+    "for the Pathway recommendation. Validate against the knowledge base rules",
+    "and explain/contextualise the results in your Clinical Reasoning.\n"
+  );
+
+  lines.push("--- Pathway Recommendations ---");
+  for (const [node, data] of Object.entries(bn.pathways || {})) {
+    const pct = (data.confidence * 100).toFixed(1);
+    lines.push(`  ${node}: ${data.state} (${pct}% confidence)`);
+    if (data.distribution) {
+      const dist = Object.entries(data.distribution)
+        .map(([s, p]) => `${s}=${(p * 100).toFixed(1)}%`)
+        .join(", ");
+      lines.push(`    Distribution: ${dist}`);
+    }
+  }
+
+  lines.push("\n--- Hidden / Inferred States ---");
+  for (const [node, data] of Object.entries(bn.hidden || {})) {
+    const pct = (data.confidence * 100).toFixed(1);
+    lines.push(`  ${node}: ${data.state} (${pct}% confidence)`);
+  }
+
+  if (bn.risks?.length) {
+    lines.push("\n--- Flagged Risks ---");
+    for (const r of bn.risks) {
+      const pct = (r.probability * 100).toFixed(1);
+      lines.push(`  ! ${r.label}: ${r.state} (P=${pct}%)`);
+    }
+  }
+
+  if (bn.rules_fired?.length) {
+    lines.push("\n--- Absolute Rules Fired ---");
+    for (const rf of bn.rules_fired) {
+      lines.push(`  [${rf.rule}] ${rf.description}`);
+      lines.push(`         Action: ${rf.action}`);
+    }
+  }
+
+  if (bn.referrals_all?.length) {
+    lines.push(`\n--- All Referrals: ${bn.referrals_all.join(", ")} ---`);
+  }
+
+  if (bn.mapped_evidence) {
+    lines.push("\n--- Mapped Evidence (ALEC → BN) ---");
+    for (const [node, state] of Object.entries(bn.mapped_evidence)) {
+      lines.push(`  ${node} = ${state}`);
+    }
+  }
+
+  if (bn.unmapped_fields?.length) {
+    lines.push(`\n--- Unmapped ALEC Fields: ${bn.unmapped_fields.join(", ")} ---`);
+    lines.push("  (These fields could not be mapped to BN nodes — consider them manually.)");
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
+
+// ── System prompts ─────────────────────────────────────────────────────────
+
+const SYSTEM_PROMPT_WITH_BN = `You are an expert NHS wheelchair referral triage assistant. A clinical Bayesian Network has already analysed this patient's ALEC Screening Form data and produced structured probabilistic recommendations (provided below as "BAYESIAN NETWORK INFERENCE RESULTS").
+
+Your task: Use the BN results as your primary basis, validate them against the clinical knowledge base, and produce three clearly separated sections:
+
+1. **Pathway** – The recommended wheelchair provision pathway. The BN has already computed:
+   - Wheelchair type, size, modifications, urgency, and referrals with confidence scores.
+   - You should adopt the BN's recommendations unless you identify a clear conflict with the knowledge base rules. If you disagree with the BN on any point, explain why.
+
+2. **References** – The specific rules, edges, and knowledge base nodes that support or conflict with the BN's output. Cite each rule or edge explicitly. Note which absolute rules the BN has already enforced (listed in "Absolute Rules Fired").
+
+3. **Clinical Reasoning** – A step-by-step narrative explaining HOW the BN moved from patient observables (Tier 0) and environment observables (Tier 1) through the hidden inferred layer (Tier 2) to the output layer (Tier 3). Use the probability distributions provided by the BN to discuss confidence levels and any areas of uncertainty. Address any unmapped fields that the BN could not process.
+
+IMPORTANT CONSTRAINTS:
+- The BN's absolute rule enforcement is authoritative — do NOT override rules the BN has already applied.
+- You MUST consider all SOFT RULES and note when they influenced your reasoning.
+- You MUST follow the causal edges defined in the knowledge base.
+- If the BN could not map certain ALEC fields (listed as "Unmapped ALEC Fields"), you should reason about those fields manually using the knowledge base.
+- Convert patient measurements to inches when comparing against thresholds (1 cm ≈ 0.3937 inches).
+- If data is ambiguous or missing, state assumptions clearly.
+- Structure your output with clear markdown headings: ## Pathway, ## References, ## Clinical Reasoning.
+- Be thorough but concise. Every claim must trace back to a specific rule, edge, or BN output.`;
+
+const SYSTEM_PROMPT_FALLBACK = `You are an expert NHS wheelchair referral triage assistant. You analyse patient referral data using a structured clinical knowledge base (provided below) to produce evidence-based recommendations.
 
 Your task: Given a patient's ALEC Screening Form data, apply the knowledge base rules and causal edges to produce three clearly separated sections:
 
@@ -65,6 +182,8 @@ IMPORTANT CONSTRAINTS:
 - If data is ambiguous or missing, state assumptions clearly.
 - Structure your output with clear markdown headings: ## Pathway, ## References, ## Clinical Reasoning.
 - Be thorough but concise. Every claim must trace back to a specific rule or edge.`;
+
+// ── Retry logic ────────────────────────────────────────────────────────────
 
 async function callWithRetry(fn, maxRetries = 2) {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -98,6 +217,8 @@ async function callWithRetry(fn, maxRetries = 2) {
   }
 }
 
+// ── Main analysis function ─────────────────────────────────────────────────
+
 async function analyseReferral(parsedFields) {
   const client = getClient();
   const model = client.getGenerativeModel({ model: MODEL_NAME });
@@ -105,19 +226,43 @@ async function analyseReferral(parsedFields) {
   const knowledgeContext = buildKnowledgeContext();
   const patientData = formatPatientData(parsedFields);
 
-  const prompt = `${SYSTEM_PROMPT}
+  let bnResults = null;
+  try {
+    bnResults = await fetchBnClassification(parsedFields);
+    console.log("BN service returned successfully");
+  } catch (err) {
+    console.warn("BN service unavailable, falling back to LLM-only:", err.message);
+  }
+
+  let prompt;
+  if (bnResults) {
+    const bnContext = formatBnResults(bnResults);
+    prompt = `${SYSTEM_PROMPT_WITH_BN}
+
+${knowledgeContext}
+
+${patientData}
+
+${bnContext}
+
+Now analyse this patient's data. The Bayesian Network results above are your primary basis. Validate them against the knowledge base, address any unmapped fields, and produce your response with the three sections: Pathway, References, and Clinical Reasoning.`;
+  } else {
+    prompt = `${SYSTEM_PROMPT_FALLBACK}
 
 ${knowledgeContext}
 
 ${patientData}
 
 Now analyse this patient's data against the knowledge base. Produce your response with the three sections: Pathway, References, and Clinical Reasoning.`;
+  }
 
   const result = await callWithRetry(() => model.generateContent(prompt));
   const response = result.response;
   const text = response.text();
 
-  return parseGeminiResponse(text);
+  const parsed = parseGeminiResponse(text);
+  parsed.bnResults = bnResults;
+  return parsed;
 }
 
 function parseGeminiResponse(raw) {
