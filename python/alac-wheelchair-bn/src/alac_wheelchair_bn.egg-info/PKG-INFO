@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: alac-wheelchair-bn
+Version: 0.1.0
+Summary: Bayesian network prototype for ALAC wheelchair referral screening
+Requires-Python: >=3.10
+Requires-Dist: pgmpy>=0.1.25
+Requires-Dist: numpy
+Requires-Dist: click
+Requires-Dist: rich
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
