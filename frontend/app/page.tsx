@@ -650,7 +650,7 @@ export default function Home() {
                     selectVideo(dropped);
                   } else {
                     setError(
-                      "Please drop a PDF referral file, or a supported video after a PDF is selected."
+                      "Please drop a PDF referral file."
                     );
                   }
                 }}
