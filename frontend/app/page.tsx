@@ -489,7 +489,7 @@ export default function Home() {
             </h3>
             <p className="mt-1 text-sm text-[var(--ink-soft)]">
               The following fields could not be extracted from the uploaded PDF.
-              Ensure all required fields are filled in the ALEC Screening Form.
+              Ensure all required fields are filled in the ALAC Screening Form.
             </p>
             {SECTION_ORDER.map((sectionKey) => {
               const missing = uploadError.missing_fields!.filter(
@@ -553,7 +553,7 @@ export default function Home() {
                 Upload
               </h2>
               <p className="text-sm text-[var(--ink-soft)]">
-                Add an ALEC Screening Form (PDF) for parsing and review.
+                Add an ALAC Screening Form (PDF) for parsing and review.
               </p>
             </div>
           </div>
@@ -634,7 +634,7 @@ export default function Home() {
                     <div className="flex min-w-0 flex-1 flex-col gap-2">
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex min-w-0 max-w-[min(100%,420px)] items-center gap-2 rounded-lg border border-[#d96363] bg-[#e87878] px-2.5 py-2"
+                        className="inline-flex w-fit max-w-full items-center gap-2 rounded-lg border border-[#d96363] bg-[#e87878] px-2.5 py-2"
                       >
                         <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#dc6666] text-white">
                           <svg
@@ -709,7 +709,7 @@ export default function Home() {
                       onClick={(e) => e.stopPropagation()}
                       className="h-12 w-[170px] shrink-0 cursor-pointer self-start rounded-xl border border-transparent bg-[linear-gradient(95deg,color-mix(in_oklch,var(--accent-strong)_96%,black),color-mix(in_oklch,var(--accent)_88%,white))] px-4 text-base font-semibold text-[var(--surface)] shadow-[0_10px_22px_color-mix(in_oklch,var(--accent)_24%,transparent)] transition duration-200 ease-out hover:translate-y-[-1px] hover:shadow-[0_14px_26px_color-mix(in_oklch,var(--accent)_30%,transparent)] disabled:cursor-not-allowed disabled:opacity-50 sm:self-center"
                     >
-                      {uploading ? "Uploading..." : "Upload & Parse"}
+                      {uploading ? "Uploading..." : "Upload"}
                     </button>
                   </>
                 ) : (
@@ -725,7 +725,7 @@ export default function Home() {
                       </svg>
                     </span>
                     <p className="text-[clamp(1.28rem,1.85vw,1.8rem)] font-semibold tracking-tight text-[var(--foreground)]">
-                      Drag and drop ALEC Screening Form
+                      Drag and drop ALAC Screening Form
                     </p>
                     <p className="mt-1.5 max-w-[46ch] text-[0.95rem] text-[var(--ink-soft)]">
                       Upload a PDF referral form to automatically extract and
