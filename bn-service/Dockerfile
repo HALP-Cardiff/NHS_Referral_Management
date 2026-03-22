@@ -2,12 +2,17 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install CPU-only PyTorch first to prevent pgmpy pulling the 3 GB CUDA version
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+# Install only the pgmpy deps actually needed for exact BN inference.
+# Skip torch, pyro, statsmodels, scikit-learn (~1 GB+ RAM) which pgmpy
+# lists but are unused by VariableElimination / TabularCPD.
+RUN pip install --no-cache-dir numpy scipy networkx pandas tqdm joblib
 
-# Install the alac-wheelchair-bn package from the sibling directory
+# Install pgmpy WITHOUT its transitive deps (torch etc. already skipped above)
+RUN pip install --no-cache-dir --no-deps pgmpy>=0.1.25
+
+# Install the alac-wheelchair-bn package (skip deps — already installed above)
 COPY python/alac-wheelchair-bn /opt/alac-wheelchair-bn
-RUN pip install --no-cache-dir /opt/alac-wheelchair-bn
+RUN pip install --no-cache-dir --no-deps /opt/alac-wheelchair-bn
 
 # Install FastAPI service dependencies
 COPY bn-service/requirements.txt .
